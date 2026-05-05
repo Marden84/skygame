@@ -272,9 +272,9 @@
       smoothAy += ((acc.y ?? 0) - smoothAy) * ACC_SMOOTH;
       smoothAz += ((acc.z ?? -9.8) - smoothAz) * ACC_SMOOTH;
 
-      // Neigungswinkel aus Schwerkraft-Vektor — kein Gimbal-Lock
-      const vGamma = Math.atan2(smoothAx, -smoothAz) * (180 / Math.PI);
-      const vBeta  = Math.atan2(smoothAy, -smoothAz) * (180 / Math.PI);
+      // Entkoppelte Roll/Pitch-Formel — Achsen beeinflussen sich nicht gegenseitig
+      const vGamma = Math.atan2(smoothAx,  Math.sqrt(smoothAy * smoothAy + smoothAz * smoothAz)) * (180 / Math.PI);
+      const vBeta  = Math.atan2(smoothAy,  Math.sqrt(smoothAx * smoothAx + smoothAz * smoothAz)) * (180 / Math.PI);
 
       if (calibrating) {
         calibSamples.push({ beta: vBeta, gamma: vGamma });
