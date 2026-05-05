@@ -19,6 +19,7 @@
     #overlay .sub { font-size: 1.1rem; opacity: 0.75; margin-bottom: 2rem; }
     #qrcode { background: white; padding: 12px; border-radius: 16px; box-shadow: 0 0 50px rgba(255,255,255,0.15); }
     #conn-info { margin-top: 1.2rem; font-size: 0.82rem; opacity: 0.45; letter-spacing: 1px; }
+    #version { position: fixed; bottom: 10px; left: 14px; font-size: 0.75rem; opacity: 0.35; color: white; z-index: 200; letter-spacing: 1px; }
 
     #hud {
       position: fixed; top: 0; left: 0; right: 0;
@@ -80,6 +81,7 @@
     <div id="score-box">🪙 <span id="score-val">0</span></div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
+  <div id="version">v1.5</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -287,8 +289,8 @@
 
     if (gameRunning) {
       // Velocity-based control: Neigung = Fluggeschwindigkeit, nicht Zielposition
-      const velX =  (tiltX / 30) * 10;
-      const velY = -(tiltY / 30) * 6;
+      const velX =  (tiltX / 30) * 12;
+      const velY = -(tiltY / 30) * 8;
 
       planeX += velX * dt;
       planeY += velY * dt;

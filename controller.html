@@ -159,8 +159,7 @@
     let conn = null, connected = false, sendLoop = null;
 
     const TILT_RANGE  = 30;   // ±30° = volle Auslenkung
-    const SMOOTH      = 0.10; // Glättungsfaktor — tiefer = ruhiger
-    const DEADZONE    = 2.5;  // Grad rund um Null ohne Bewegung
+    const SMOOTH      = 0.20; // Glättungsfaktor — tiefer = ruhiger, höher = responsiver
 
     // ── Landscape helpers ───────────────────────────────────────────────────
     function getLandscapeSign() {
@@ -278,13 +277,12 @@
 
         // Landscape axis swap + clamp
         const clamp = v => Math.max(-TILT_RANGE, Math.min(TILT_RANGE, v));
-        const dz    = v => Math.abs(v) < DEADZONE ? 0 : (v > 0 ? v - DEADZONE : v + DEADZONE);
         const rawB =  sign * dGamma;
         const rawG =  sign * dBeta;
 
-        // EMA-Glättung — dämpft Rauschen und Ausreisser weich
-        smoothBeta  += (dz(clamp(rawB)) - smoothBeta)  * SMOOTH;
-        smoothGamma += (dz(clamp(rawG)) - smoothGamma) * SMOOTH;
+        // EMA-Glättung — dämpft Sensor-Rauschen weich
+        smoothBeta  += (clamp(rawB) - smoothBeta)  * SMOOTH;
+        smoothGamma += (clamp(rawG) - smoothGamma) * SMOOTH;
         beta  = smoothBeta;
         gamma = smoothGamma;
 
