@@ -298,7 +298,7 @@
 
       // Bank & pitch based on how fast we're turning
       airplane.rotation.z  = -(targetX - planeX) * 0.07;
-      airplane.rotation.x  = -(targetY - planeY) * 0.08;
+      airplane.rotation.x  =  (targetY - planeY) * 0.08;
 
       // Spin propeller
       if (propeller) propeller.rotation.z += 18 * dt;
