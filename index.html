@@ -293,14 +293,14 @@
       planeX += velX * dt;
       planeY += velY * dt;
       planeX  = Math.max(-14, Math.min(14, planeX));
-      planeY  = Math.max(-4.5, Math.min(7.5, planeY));
+      planeY  = Math.max(-6,  Math.min(12, planeY));
 
       airplane.position.x = planeX;
       airplane.position.y = planeY;
 
       // Bank & pitch basiert direkt auf Neigungswinkel
       const desiredRoll  = -(tiltX / 30) * 0.45;
-      const desiredPitch =  (tiltY / 30) * 0.30;
+      const desiredPitch = -(tiltY / 30) * 0.30;
       airplane.rotation.z += (desiredRoll  - airplane.rotation.z) * 5 * dt;
       airplane.rotation.x += (desiredPitch - airplane.rotation.x) * 5 * dt;
 
@@ -308,8 +308,8 @@
       if (propeller) propeller.rotation.z += 18 * dt;
 
       // Camera follow (smooth)
-      camera.position.x += (planeX     - camera.position.x) * 2.8 * dt;
-      camera.position.y += (planeY + 5 - camera.position.y) * 2.8 * dt;
+      camera.position.x += (planeX     - camera.position.x) * 4 * dt;
+      camera.position.y += (planeY + 5 - camera.position.y) * 4 * dt;
       camera.lookAt(planeX, planeY, -8);
 
       // Spawn timer
