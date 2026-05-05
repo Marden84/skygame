@@ -66,6 +66,22 @@
       font-size: 1.15rem; opacity: 0.88;
       text-align: center; line-height: 1.6;
     }
+
+    #lightning-flash {
+      position: fixed; inset: 0;
+      background: rgba(160, 210, 255, 0.88);
+      pointer-events: none; z-index: 50;
+      opacity: 0; transition: opacity 0.35s ease-out;
+    }
+
+    #hit-label {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 2.4rem; font-weight: bold;
+      color: #ff4444; text-shadow: 0 0 18px rgba(255,60,60,0.7);
+      pointer-events: none; z-index: 51;
+      opacity: 0; transition: opacity 0.5s ease-out;
+    }
   </style>
 </head>
 <body>
@@ -87,6 +103,9 @@
     <div id="calib-wait-spinner"></div>
     <p>Controller wird kalibriert…<br><span style="font-size:0.85rem;opacity:0.6">Spiel startet gleich</span></p>
   </div>
+
+  <div id="lightning-flash"></div>
+  <div id="hit-label">⚡ −5</div>
 
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -294,6 +313,8 @@
   let tiltX = 0, tiltY = 0;
   let planeX = 0, planeY = 0;
   let spawnTimer = 0;
+  const lightnings = [];
+  let lightningTimer = 0;
 
   const scoreEl = document.getElementById('score-val');
 
@@ -342,6 +363,39 @@
     });
   });
 
+  // ── LIGHTNING ──────────────────────────────────────────────────────────────
+  function spawnLightning() {
+    const candidates = clouds.filter(c => c.position.z > -70 && c.position.z < -8);
+    if (!candidates.length) return;
+    const cloud = candidates[Math.floor(Math.random() * candidates.length)];
+
+    const bx = cloud.position.x + (Math.random() - 0.5) * 3;
+    const by = cloud.position.y - 1.5;
+    const bz = cloud.position.z;
+
+    const pts = [];
+    let lx = 0, ly = 0;
+    pts.push(new THREE.Vector3(0, 0, 0));
+    for (let i = 0; i < 7; i++) {
+      lx += (Math.random() - 0.5) * 1.8;
+      ly -= 1.3 + Math.random() * 1.0;
+      pts.push(new THREE.Vector3(lx, ly, 0));
+    }
+
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+    const bolt = new THREE.Line(geo, mat);
+    bolt.position.set(bx, by, bz);
+
+    bolt.userData.age   = 0;
+    bolt.userData.life  = 0.7;
+    bolt.userData.dropY = ly;
+    bolt.userData.hit   = false;
+
+    scene.add(bolt);
+    lightnings.push(bolt);
+  }
+
   // ── GAME LOOP ──────────────────────────────────────────────────────────────
   const clock = new THREE.Clock();
   const SPEED = 28;
@@ -382,6 +436,46 @@
         spawnTimer = 0;
         spawnCloud(-210);
         if (Math.random() > 0.2) spawnCoin(-185);
+      }
+
+      // Lightning spawn (every ~5s with 60% chance)
+      lightningTimer += dt;
+      if (lightningTimer > 5) {
+        lightningTimer = 0;
+        if (Math.random() > 0.4) spawnLightning();
+      }
+
+      // Update lightning bolts
+      for (let i = lightnings.length - 1; i >= 0; i--) {
+        const bolt = lightnings[i];
+        bolt.userData.age += dt;
+        bolt.position.z += SPEED * dt;
+
+        // Flicker at ~20 Hz
+        bolt.material.opacity = Math.floor(bolt.userData.age * 20) % 2 === 0 ? 1.0 : 0.1;
+
+        // Collision when bolt passes through plane's z-plane
+        if (!bolt.userData.hit && Math.abs(bolt.position.z) < 3) {
+          const dx = Math.abs(bolt.position.x - planeX);
+          const dy = bolt.position.y - planeY;
+          if (dx < 2.5 && dy > -1 && dy < Math.abs(bolt.userData.dropY) + 1) {
+            bolt.userData.hit = true;
+            score = Math.max(0, score - 5);
+            scoreEl.textContent = score;
+            if (conn && conn.open) conn.send({ type: 'score', value: score });
+            const flash    = document.getElementById('lightning-flash');
+            const hitLabel = document.getElementById('hit-label');
+            flash.style.opacity    = '1';
+            hitLabel.style.opacity = '1';
+            setTimeout(() => { flash.style.opacity = '0'; hitLabel.style.opacity = '0'; }, 320);
+          }
+        }
+
+        if (bolt.userData.age > bolt.userData.life || bolt.position.z > 22) {
+          scene.remove(bolt);
+          bolt.geometry.dispose();
+          lightnings.splice(i, 1);
+        }
       }
 
       // Move clouds
