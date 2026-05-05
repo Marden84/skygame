@@ -154,12 +154,14 @@
     let beta = 0, gamma = 0;
     let neutralBeta = 0, neutralGamma = 0;
     let smoothBeta = 0, smoothGamma = 0;
+    let smoothAx = 0, smoothAy = 0, smoothAz = -9.8;
     let calibSamples = [];
     let calibrating = false, calibDone = false;
     let conn = null, connected = false, sendLoop = null;
 
-    const TILT_RANGE  = 30;   // ±30° = volle Auslenkung
-    const SMOOTH      = 0.20; // Glättungsfaktor — tiefer = ruhiger, höher = responsiver
+    const TILT_RANGE = 30;   // ±30° = volle Auslenkung
+    const SMOOTH     = 0.20; // EMA für Ausgabe
+    const ACC_SMOOTH = 0.35; // EMA für Accelerometer-Rohwerte
 
     // ── Landscape helpers ───────────────────────────────────────────────────
     function getLandscapeSign() {
@@ -190,9 +192,11 @@
         // Show landscape nudge
         document.getElementById('landscape-hint').style.display = 'block';
 
-        // iOS 13+ requires user gesture to access DeviceOrientation
-        if (typeof DeviceOrientationEvent !== 'undefined' &&
-            typeof DeviceOrientationEvent.requestPermission === 'function') {
+        // iOS 13+ requires user gesture for sensor access
+        const needsPerm =
+          (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') ||
+          (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function');
+        if (needsPerm) {
           document.getElementById('btn-start').style.display = 'block';
           document.getElementById('hint').textContent = 'Tippe den Button, um den Sensor freizugeben';
         } else {
@@ -219,20 +223,14 @@
 
     // ── iOS permission request ───────────────────────────────────────────────
     function requestPerm() {
-      DeviceOrientationEvent.requestPermission()
-        .then(state => {
-          if (state === 'granted') {
-            document.getElementById('btn-start').style.display = 'none';
-            startSensors();
-          } else {
-            statusEl.textContent = '❌ Sensor-Berechtigung verweigert';
-            statusEl.className   = 'error';
-          }
-        })
-        .catch(() => {
-          statusEl.textContent = '❌ Sensor konnte nicht gestartet werden';
-          statusEl.className   = 'error';
-        });
+      const reqs = [];
+      if (typeof DeviceMotionEvent?.requestPermission === 'function')
+        reqs.push(DeviceMotionEvent.requestPermission());
+      if (typeof DeviceOrientationEvent?.requestPermission === 'function')
+        reqs.push(DeviceOrientationEvent.requestPermission());
+      Promise.all(reqs)
+        .then(() => { document.getElementById('btn-start').style.display = 'none'; startSensors(); })
+        .catch(() => { statusEl.textContent = '❌ Sensor-Berechtigung verweigert'; statusEl.className = 'error'; });
     }
 
     // ── Sensor reading + calibration ────────────────────────────────────────
@@ -251,7 +249,7 @@
 
       const calibStart = performance.now();
 
-      window.addEventListener('deviceorientation', onOrientation);
+      window.addEventListener('devicemotion', onMotion);
 
       const calibTick = setInterval(() => {
         const elapsed  = performance.now() - calibStart;
@@ -263,29 +261,35 @@
       }, 100);
     }
 
-    function onOrientation(e) {
-      const rawBeta  = e.beta  ?? 0;
-      const rawGamma = e.gamma ?? 0;
+    // Accelerometer-basiert: kein Gimbal-Lock möglich
+    // Schwerkraft-Vektor → atan2 → Neigungswinkel (mathematisch stabil bis 90°)
+    function onMotion(e) {
+      const acc = e.accelerationIncludingGravity;
+      if (!acc) return;
+
+      // Low-pass filter auf Accelerometer-Rohwerte (filtert Vibrations-Rauschen)
+      smoothAx += ((acc.x ?? 0) - smoothAx) * ACC_SMOOTH;
+      smoothAy += ((acc.y ?? 0) - smoothAy) * ACC_SMOOTH;
+      smoothAz += ((acc.z ?? -9.8) - smoothAz) * ACC_SMOOTH;
+
+      // Neigungswinkel aus Schwerkraft-Vektor — kein Gimbal-Lock
+      const vGamma = Math.atan2(smoothAx, -smoothAz) * (180 / Math.PI);
+      const vBeta  = Math.atan2(smoothAy, -smoothAz) * (180 / Math.PI);
 
       if (calibrating) {
-        calibSamples.push({ beta: rawBeta, gamma: rawGamma });
-        updateDot(rawBeta, rawGamma, 45, 45);
+        calibSamples.push({ beta: vBeta, gamma: vGamma });
+        updateDot(vBeta, vGamma, 45, 45);
       } else if (calibDone) {
-        const dBeta  = rawBeta  - neutralBeta;
-        const dGamma = rawGamma - neutralGamma;
+        const dBeta  = vBeta  - neutralBeta;
+        const dGamma = vGamma - neutralGamma;
         const sign   = getLandscapeSign();
 
-        // Landscape axis swap + clamp
         const clamp = v => Math.max(-TILT_RANGE, Math.min(TILT_RANGE, v));
         const rawB =  sign * dGamma;
         const rawG =  sign * dBeta;
 
-        // EMA mit Rate-Limiter — verhindert Sprünge bei Gimbal-Lock
-        const MAX_RATE = 4;
-        const dB = (clamp(rawB) - smoothBeta)  * SMOOTH;
-        const dG = (clamp(rawG) - smoothGamma) * SMOOTH;
-        smoothBeta  += Math.max(-MAX_RATE, Math.min(MAX_RATE, dB));
-        smoothGamma += Math.max(-MAX_RATE, Math.min(MAX_RATE, dG));
+        smoothBeta  += (clamp(rawB) - smoothBeta)  * SMOOTH;
+        smoothGamma += (clamp(rawG) - smoothGamma) * SMOOTH;
         beta  = smoothBeta;
         gamma = smoothGamma;
 
