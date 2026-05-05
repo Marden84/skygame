@@ -153,9 +153,13 @@
 
     let beta = 0, gamma = 0;
     let neutralBeta = 0, neutralGamma = 0;
+    let smoothBeta = 0, smoothGamma = 0;
     let calibSamples = [];
     let calibrating = false, calibDone = false;
     let conn = null, connected = false, sendLoop = null;
+
+    const TILT_RANGE  = 30;   // ±30° = volle Auslenkung (weniger = sensibler)
+    const SMOOTH      = 0.18; // Glättungsfaktor (kleiner = ruhiger, aber träger)
 
     // ── Landscape helpers ───────────────────────────────────────────────────
     function getLandscapeSign() {
@@ -270,10 +274,19 @@
         const dBeta  = rawBeta  - neutralBeta;
         const dGamma = rawGamma - neutralGamma;
         const sign   = getLandscapeSign();
-        // Landscape axis swap: physical left/right lean → game X, forward/back → game Y
-        beta  =  sign * dGamma;
-        gamma = -sign * dBeta;
-        updateDot(beta, gamma, 45, 45);
+
+        // Landscape axis swap + clamp
+        const clamp = v => Math.max(-TILT_RANGE, Math.min(TILT_RANGE, v));
+        const rawB =  sign * dGamma;  // forward/back → game Y
+        const rawG =  sign * dBeta;   // left/right lean → game X (fixed: was -sign)
+
+        // Exponential moving average — dämpft Sensor-Rauschen und Sprünge
+        smoothBeta  += (clamp(rawB) - smoothBeta)  * SMOOTH;
+        smoothGamma += (clamp(rawG) - smoothGamma) * SMOOTH;
+        beta  = smoothBeta;
+        gamma = smoothGamma;
+
+        updateDot(beta, gamma, TILT_RANGE, TILT_RANGE);
       }
     }
 

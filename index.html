@@ -262,8 +262,8 @@
         pill.className   = 'pill-ok';
       }
       if (d.type === 'tilt') {
-        tiltX = Math.max(-45, Math.min(45, d.gamma));
-        tiltY = Math.max(-45, Math.min(45, d.beta));
+        tiltX = Math.max(-30, Math.min(30, d.gamma));
+        tiltY = Math.max(-30, Math.min(30, d.beta));
       }
     });
     c.on('close', () => {
@@ -284,12 +284,12 @@
 
     if (gameRunning) {
       // Map tilt to world coordinates
-      const targetX =  (tiltX / 45) * 12;
-      const targetY = -(tiltY / 45) * 5.5;
+      const targetX =  (tiltX / 30) * 12;
+      const targetY = -(tiltY / 30) * 5.5;
 
       // Smooth follow
-      planeX += (targetX - planeX) * 4.5 * dt;
-      planeY += (targetY - planeY) * 4.5 * dt;
+      planeX += (targetX - planeX) * 3.5 * dt;
+      planeY += (targetY - planeY) * 3.5 * dt;
       planeX  = Math.max(-14, Math.min(14, planeX));
       planeY  = Math.max(-4.5, Math.min(7.5, planeY));
 
