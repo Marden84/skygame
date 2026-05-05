@@ -81,7 +81,7 @@
     <div id="score-box">🪙 <span id="score-val">0</span></div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v2.1</div>
+  <div id="version">v2.2</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -291,7 +291,7 @@
       // Expo-Kurve: kleine Neigungen = sehr präzise, grosse = volle Geschwindigkeit
       const expo = v => Math.sign(v) * Math.pow(Math.abs(v) / 30, 1.6) * 30;
       const velX =  (expo(tiltX) / 30) * 10;
-      const velY = -(expo(tiltY) / 30) * 7;
+      const velY = -(expo(tiltY) / 30) * 11;
 
       planeX += velX * dt;
       planeY += velY * dt;
