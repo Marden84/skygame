@@ -160,8 +160,8 @@
     let conn = null, connected = false, sendLoop = null;
 
     const TILT_RANGE = 30;   // ±30° = volle Auslenkung
-    const SMOOTH     = 0.20; // EMA für Ausgabe
-    const ACC_SMOOTH = 0.35; // EMA für Accelerometer-Rohwerte
+    const SMOOTH     = 0.18; // EMA für Ausgabe
+    const ACC_SMOOTH = 0.25; // EMA für Accelerometer-Rohwerte (tiefer = sanfter)
 
     // ── Landscape helpers ───────────────────────────────────────────────────
     function getLandscapeSign() {
