@@ -81,7 +81,7 @@
     <div id="score-box">🪙 <span id="score-val">0</span></div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v1.5</div>
+  <div id="version">v1.6</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -292,10 +292,19 @@
       const velX =  (tiltX / 30) * 12;
       const velY = -(tiltY / 30) * 8;
 
-      planeX += velX * dt;
-      planeY += velY * dt;
-      planeX  = Math.max(-14, Math.min(14, planeX));
-      planeY  = Math.max(-6,  Math.min(12, planeY));
+      // Weiche Grenzen: Flugzeug bremst sanft statt hart zu stoppen
+      const Y_MAX = 12, Y_MIN = -6, X_MAX = 14, SOFT = 3;
+      const factorY = velY > 0
+        ? (planeY > Y_MAX - SOFT ? Math.max(0, (Y_MAX - planeY) / SOFT) : 1)
+        : (planeY < Y_MIN + SOFT ? Math.max(0, (planeY - Y_MIN) / SOFT) : 1);
+      const factorX = velX > 0
+        ? (planeX > X_MAX - SOFT ? Math.max(0, (X_MAX - planeX) / SOFT) : 1)
+        : (planeX < -X_MAX + SOFT ? Math.max(0, (-X_MAX - planeX) / -SOFT) : 1);
+
+      planeX += velX * factorX * dt;
+      planeY += velY * factorY * dt;
+      planeX  = Math.max(-X_MAX, Math.min(X_MAX, planeX));
+      planeY  = Math.max(Y_MIN,  Math.min(Y_MAX, planeY));
 
       airplane.position.x = planeX;
       airplane.position.y = planeY;

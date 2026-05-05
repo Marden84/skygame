@@ -280,9 +280,12 @@
         const rawB =  sign * dGamma;
         const rawG =  sign * dBeta;
 
-        // EMA-Glättung — dämpft Sensor-Rauschen weich
-        smoothBeta  += (clamp(rawB) - smoothBeta)  * SMOOTH;
-        smoothGamma += (clamp(rawG) - smoothGamma) * SMOOTH;
+        // EMA mit Rate-Limiter — verhindert Sprünge bei Gimbal-Lock
+        const MAX_RATE = 4;
+        const dB = (clamp(rawB) - smoothBeta)  * SMOOTH;
+        const dG = (clamp(rawG) - smoothGamma) * SMOOTH;
+        smoothBeta  += Math.max(-MAX_RATE, Math.min(MAX_RATE, dB));
+        smoothGamma += Math.max(-MAX_RATE, Math.min(MAX_RATE, dG));
         beta  = smoothBeta;
         gamma = smoothGamma;
 
