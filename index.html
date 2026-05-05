@@ -207,11 +207,11 @@
 
   function spawnCoin(z) {
     const coin = new THREE.Mesh(
-      new THREE.TorusGeometry(0.55, 0.18, 10, 22),
-      new THREE.MeshPhongMaterial({ color: 0xffd700, emissive: 0xaa7700, shininess: 130 })
+      new THREE.CylinderGeometry(0.55, 0.55, 0.14, 24),
+      new THREE.MeshPhongMaterial({ color: 0xffd700, emissive: 0x996600, shininess: 160 })
     );
     coin.position.set((Math.random() - .5) * 18, -3.5 + Math.random() * 8, z);
-    coin.rotation.y = Math.PI / 2;
+    coin.rotation.x = Math.PI / 2;
     coin.userData.speed = 1;
     coin.userData.rotX = (Math.random() - 0.5) * 3;
     coin.userData.rotY = (Math.random() - 0.5) * 4;
@@ -286,24 +286,23 @@
     const dt = Math.min(clock.getDelta(), 0.05);
 
     if (gameRunning) {
-      // Map tilt to world coordinates
-      const targetX =  (tiltX / 30) * 12;
-      const targetY = -(tiltY / 30) * 5.5;
+      // Velocity-based control: Neigung = Fluggeschwindigkeit, nicht Zielposition
+      const velX =  (tiltX / 30) * 16;
+      const velY = -(tiltY / 30) * 8;
 
-      // Smooth follow
-      planeX += (targetX - planeX) * 3.5 * dt;
-      planeY += (targetY - planeY) * 3.5 * dt;
+      planeX += velX * dt;
+      planeY += velY * dt;
       planeX  = Math.max(-14, Math.min(14, planeX));
       planeY  = Math.max(-4.5, Math.min(7.5, planeY));
 
       airplane.position.x = planeX;
       airplane.position.y = planeY;
 
-      // Bank & pitch — smoothed to avoid jitter
-      const desiredRoll  = -(targetX - planeX) * 0.07;
-      const desiredPitch =  (targetY - planeY) * 0.08;
-      airplane.rotation.z += (desiredRoll  - airplane.rotation.z) * 6 * dt;
-      airplane.rotation.x += (desiredPitch - airplane.rotation.x) * 6 * dt;
+      // Bank & pitch basiert direkt auf Neigungswinkel
+      const desiredRoll  = -(tiltX / 30) * 0.45;
+      const desiredPitch =  (tiltY / 30) * 0.30;
+      airplane.rotation.z += (desiredRoll  - airplane.rotation.z) * 5 * dt;
+      airplane.rotation.x += (desiredPitch - airplane.rotation.x) * 5 * dt;
 
       // Spin propeller
       if (propeller) propeller.rotation.z += 18 * dt;

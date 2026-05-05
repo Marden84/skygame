@@ -154,6 +154,7 @@
     let beta = 0, gamma = 0;
     let neutralBeta = 0, neutralGamma = 0;
     let smoothBeta = 0, smoothGamma = 0;
+    let lastRawBeta = null, lastRawGamma = null;
     let calibSamples = [];
     let calibrating = false, calibDone = false;
     let conn = null, connected = false, sendLoop = null;
@@ -266,6 +267,17 @@
     function onOrientation(e) {
       const rawBeta  = e.beta  ?? 0;
       const rawGamma = e.gamma ?? 0;
+
+      // Spike-Filter: Ausreisser ignorieren (passiert bei extremen Winkeln / Gimbal-Lock)
+      if (lastRawBeta !== null) {
+        if (Math.abs(rawBeta - lastRawBeta) > 25 || Math.abs(rawGamma - lastRawGamma) > 25) {
+          lastRawBeta  = rawBeta;
+          lastRawGamma = rawGamma;
+          return;
+        }
+      }
+      lastRawBeta  = rawBeta;
+      lastRawGamma = rawGamma;
 
       if (calibrating) {
         calibSamples.push({ beta: rawBeta, gamma: rawGamma });
