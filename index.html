@@ -288,9 +288,7 @@
     const dt = Math.min(clock.getDelta(), 0.05);
 
     if (gameRunning) {
-      // Expo-Kurve: kleine Neigungen = sehr präzise, grosse = volle Geschwindigkeit
-      const expo = v => Math.sign(v) * Math.pow(Math.abs(v) / 30, 1.6) * 30;
-      const velX =  (expo(tiltX) / 30) * 10;
+      const velX =  (tiltX / 30) * 13;
       const velY = -(tiltY / 30) * 13;
 
       planeX += velX * dt;
