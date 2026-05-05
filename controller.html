@@ -286,7 +286,7 @@
 
         const clamp = v => Math.max(-TILT_RANGE, Math.min(TILT_RANGE, v));
         const rawB =  sign * dGamma;
-        const rawG =  sign * dBeta;
+        const rawG = -sign * dBeta;
 
         smoothBeta  += (clamp(rawB) - smoothBeta)  * SMOOTH;
         smoothGamma += (clamp(rawG) - smoothGamma) * SMOOTH;
