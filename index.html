@@ -287,8 +287,8 @@
 
     if (gameRunning) {
       // Velocity-based control: Neigung = Fluggeschwindigkeit, nicht Zielposition
-      const velX =  (tiltX / 30) * 16;
-      const velY = -(tiltY / 30) * 8;
+      const velX =  (tiltX / 30) * 10;
+      const velY = -(tiltY / 30) * 6;
 
       planeX += velX * dt;
       planeY += velY * dt;

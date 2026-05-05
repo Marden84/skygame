@@ -154,13 +154,13 @@
     let beta = 0, gamma = 0;
     let neutralBeta = 0, neutralGamma = 0;
     let smoothBeta = 0, smoothGamma = 0;
-    let lastRawBeta = null, lastRawGamma = null;
     let calibSamples = [];
     let calibrating = false, calibDone = false;
     let conn = null, connected = false, sendLoop = null;
 
-    const TILT_RANGE  = 30;   // ±30° = volle Auslenkung (weniger = sensibler)
-    const SMOOTH      = 0.18; // Glättungsfaktor (kleiner = ruhiger, aber träger)
+    const TILT_RANGE  = 30;   // ±30° = volle Auslenkung
+    const SMOOTH      = 0.10; // Glättungsfaktor — tiefer = ruhiger
+    const DEADZONE    = 2.5;  // Grad rund um Null ohne Bewegung
 
     // ── Landscape helpers ───────────────────────────────────────────────────
     function getLandscapeSign() {
@@ -268,17 +268,6 @@
       const rawBeta  = e.beta  ?? 0;
       const rawGamma = e.gamma ?? 0;
 
-      // Spike-Filter: Ausreisser ignorieren (passiert bei extremen Winkeln / Gimbal-Lock)
-      if (lastRawBeta !== null) {
-        if (Math.abs(rawBeta - lastRawBeta) > 25 || Math.abs(rawGamma - lastRawGamma) > 25) {
-          lastRawBeta  = rawBeta;
-          lastRawGamma = rawGamma;
-          return;
-        }
-      }
-      lastRawBeta  = rawBeta;
-      lastRawGamma = rawGamma;
-
       if (calibrating) {
         calibSamples.push({ beta: rawBeta, gamma: rawGamma });
         updateDot(rawBeta, rawGamma, 45, 45);
@@ -289,12 +278,13 @@
 
         // Landscape axis swap + clamp
         const clamp = v => Math.max(-TILT_RANGE, Math.min(TILT_RANGE, v));
-        const rawB =  sign * dGamma;  // forward/back → game Y
-        const rawG =  sign * dBeta;   // left/right lean → game X (fixed: was -sign)
+        const dz    = v => Math.abs(v) < DEADZONE ? 0 : (v > 0 ? v - DEADZONE : v + DEADZONE);
+        const rawB =  sign * dGamma;
+        const rawG =  sign * dBeta;
 
-        // Exponential moving average — dämpft Sensor-Rauschen und Sprünge
-        smoothBeta  += (clamp(rawB) - smoothBeta)  * SMOOTH;
-        smoothGamma += (clamp(rawG) - smoothGamma) * SMOOTH;
+        // EMA-Glättung — dämpft Rauschen und Ausreisser weich
+        smoothBeta  += (dz(clamp(rawB)) - smoothBeta)  * SMOOTH;
+        smoothGamma += (dz(clamp(rawG)) - smoothGamma) * SMOOTH;
         beta  = smoothBeta;
         gamma = smoothGamma;
 
