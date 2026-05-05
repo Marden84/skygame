@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SkyCoins Controller</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100dvh;
+      background: linear-gradient(160deg, #0f0c29, #302b63, #24243e);
+      color: white;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.4rem;
+      user-select: none;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    h1 { font-size: 2.2rem; letter-spacing: 3px; }
+
+    #status {
+      font-size: 1.05rem; text-align: center;
+      padding: 10px 26px; border-radius: 30px;
+      background: rgba(255,255,255,0.08);
+      max-width: 90vw;
+    }
+    .ok    { background: rgba(0,200,80,0.28)  !important; }
+    .error { background: rgba(200,30,30,0.28) !important; }
+
+    /* Tilt visualiser */
+    #ring {
+      width: 170px; height: 170px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.18);
+      background: radial-gradient(circle, rgba(255,255,255,0.04), transparent 70%);
+      position: relative;
+    }
+    #dot {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: #ffd700;
+      box-shadow: 0 0 16px #ffd700, 0 0 32px rgba(255,215,0,0.4);
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    #btn-start {
+      display: none;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white; border: none;
+      padding: 18px 48px; border-radius: 50px;
+      font-size: 1.15rem; cursor: pointer;
+      box-shadow: 0 4px 22px rgba(102,126,234,0.45);
+      transition: transform .1s;
+    }
+    #btn-start:active { transform: scale(0.95); }
+
+    #hint { font-size: 0.88rem; opacity: 0.5; text-align: center; padding: 0 2.5rem; }
+
+    #score-display { font-size: 2rem; font-weight: bold; color: #ffd700; letter-spacing: 2px; }
+
+    /* Crosshair lines inside ring */
+    #ring::before, #ring::after {
+      content: '';
+      position: absolute; background: rgba(255,255,255,0.1);
+    }
+    #ring::before { width: 1px; height: 100%; left: 50%; top: 0; }
+    #ring::after  { height: 1px; width: 100%; top: 50%; left: 0; }
+  </style>
+</head>
+<body>
+
+  <h1>✈️ SkyCoins</h1>
+  <div id="status">Verbinde mit Spiel…</div>
+
+  <div id="ring"><div id="dot"></div></div>
+
+  <button id="btn-start" onclick="requestPerm()">🎮 Sensor freigeben</button>
+
+  <p id="hint">Neige dein Handy, um das Flugzeug zu steuern</p>
+  <div id="score-display">🪙 <span id="sc">0</span></div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+
+    const params   = new URLSearchParams(location.search);
+    const hostId   = params.get('peer');
+    const statusEl = document.getElementById('status');
+    const dot      = document.getElementById('dot');
+    const ring     = document.getElementById('ring');
+    const scEl     = document.getElementById('sc');
+
+    let beta = 0, gamma = 0;
+    let conn = null, connected = false, sendLoop = null;
+
+    // ── No game ID in URL ───────────────────────────────────────────────────
+    if (!hostId) {
+      statusEl.textContent = '❌ Kein Spiel gefunden – QR-Code erneut scannen';
+      statusEl.className   = 'error';
+    }
+
+    // ── PeerJS ──────────────────────────────────────────────────────────────
+    const peer = new Peer(undefined, { debug: 0 });
+
+    peer.on('open', () => { if (hostId) connect(); });
+
+    function connect() {
+      statusEl.textContent = 'Verbinde mit Spiel…';
+      conn = peer.connect(hostId, { reliable: false, serialization: 'json' });
+
+      conn.on('open', () => {
+        connected = true;
+        statusEl.textContent = '✅ Verbunden!';
+        statusEl.className   = 'ok';
+
+        // iOS 13+ requires user gesture to access DeviceOrientation
+        if (typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function') {
+          document.getElementById('btn-start').style.display = 'block';
+          document.getElementById('hint').textContent = 'Tippe den Button, um den Sensor freizugeben';
+        } else {
+          startSensors();
+        }
+      });
+
+      conn.on('data', d => {
+        if (d.type === 'score') scEl.textContent = d.value;
+      });
+
+      conn.on('close', () => {
+        connected = false;
+        clearInterval(sendLoop);
+        statusEl.textContent = '❌ Verbindung getrennt';
+        statusEl.className   = 'error';
+      });
+
+      conn.on('error', err => {
+        statusEl.textContent = '❌ Fehler: ' + err;
+        statusEl.className   = 'error';
+      });
+    }
+
+    // ── iOS permission request ───────────────────────────────────────────────
+    function requestPerm() {
+      DeviceOrientationEvent.requestPermission()
+        .then(state => {
+          if (state === 'granted') {
+            document.getElementById('btn-start').style.display = 'none';
+            startSensors();
+          } else {
+            statusEl.textContent = '❌ Sensor-Berechtigung verweigert';
+            statusEl.className   = 'error';
+          }
+        })
+        .catch(() => {
+          statusEl.textContent = '❌ Sensor konnte nicht gestartet werden';
+          statusEl.className   = 'error';
+        });
+    }
+
+    // ── Sensor reading + send loop ───────────────────────────────────────────
+    function startSensors() {
+      document.getElementById('hint').textContent = 'Neige dein Handy, um das Flugzeug zu steuern';
+
+      window.addEventListener('deviceorientation', e => {
+        beta  = e.beta  ?? 0;   // Vorwärts-/Rückwärtsneigung
+        gamma = e.gamma ?? 0;   // Links-/Rechtsneigung
+
+        // Visual feedback: map tilt to dot position inside ring
+        const rPx = ring.clientWidth / 2 - 17;
+        const rx  = Math.max(-1, Math.min(1, gamma / 45));
+        const ry  = Math.max(-1, Math.min(1, beta  / 45));
+        dot.style.left = (ring.clientWidth  / 2 + rx * rPx) + 'px';
+        dot.style.top  = (ring.clientHeight / 2 + ry * rPx) + 'px';
+      });
+
+      // Send at ~25 fps — no need for every frame
+      sendLoop = setInterval(() => {
+        if (connected && conn?.open) {
+          conn.send({ type: 'tilt', beta, gamma });
+        }
+      }, 40);
+    }
+
+    peer.on('error', () => {
+      statusEl.textContent = '❌ Verbindungsfehler – Seite neu laden';
+      statusEl.className   = 'error';
+    });
+
+  </script>
+</body>
+</html>
