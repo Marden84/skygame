@@ -72,6 +72,50 @@
     }
     #ring::before { width: 1px; height: 100%; left: 50%; top: 0; }
     #ring::after  { height: 1px; width: 100%; top: 50%; left: 0; }
+
+    /* Landscape hint banner */
+    #landscape-hint {
+      display: none;
+      background: rgba(255,215,0,0.12);
+      border: 1px solid rgba(255,215,0,0.35);
+      border-radius: 12px;
+      padding: 10px 20px;
+      font-size: 0.9rem;
+      text-align: center;
+      max-width: 90vw;
+      color: #ffd700;
+    }
+
+    /* Calibration overlay */
+    #calib-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(8, 6, 35, 0.94);
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.2rem;
+      z-index: 50;
+      text-align: center;
+      padding: 2rem;
+    }
+    #calib-countdown {
+      font-size: 5rem; font-weight: bold;
+      color: #ffd700; line-height: 1;
+      text-shadow: 0 0 30px rgba(255,215,0,0.6);
+      min-width: 2ch; text-align: center;
+    }
+    #calib-bar-track {
+      width: 80vw; max-width: 320px;
+      height: 8px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 4px; overflow: hidden;
+    }
+    #calib-bar-fill {
+      height: 100%; width: 100%;
+      background: linear-gradient(90deg, #667eea, #ffd700);
+      border-radius: 4px;
+      transform-origin: left;
+    }
   </style>
 </head>
 <body>
@@ -81,10 +125,21 @@
 
   <div id="ring"><div id="dot"></div></div>
 
+  <p id="landscape-hint">📱 Drehe dein Handy quer (Landscape)</p>
+
   <button id="btn-start" onclick="requestPerm()">🎮 Sensor freigeben</button>
 
   <p id="hint">Neige dein Handy, um das Flugzeug zu steuern</p>
   <div id="score-display">🪙 <span id="sc">0</span></div>
+
+  <div id="calib-overlay">
+    <p style="font-size:1.1rem; opacity:0.85; max-width:80vw; line-height:1.6;">
+      Halte dein Handy in deiner<br>bequemen Steuerposition
+    </p>
+    <div id="calib-countdown">5</div>
+    <div id="calib-bar-track"><div id="calib-bar-fill"></div></div>
+    <p style="font-size:0.85rem; opacity:0.5;">Das Spiel startet automatisch</p>
+  </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
@@ -97,7 +152,16 @@
     const scEl     = document.getElementById('sc');
 
     let beta = 0, gamma = 0;
+    let neutralBeta = 0, neutralGamma = 0;
+    let calibSamples = [];
+    let calibrating = false, calibDone = false;
     let conn = null, connected = false, sendLoop = null;
+
+    // ── Landscape helpers ───────────────────────────────────────────────────
+    function getLandscapeSign() {
+      const angle = (screen.orientation?.angle ?? window.orientation ?? 0);
+      return angle === 270 ? -1 : 1;
+    }
 
     // ── No game ID in URL ───────────────────────────────────────────────────
     if (!hostId) {
@@ -118,6 +182,9 @@
         connected = true;
         statusEl.textContent = '✅ Verbunden!';
         statusEl.className   = 'ok';
+
+        // Show landscape nudge
+        document.getElementById('landscape-hint').style.display = 'block';
 
         // iOS 13+ requires user gesture to access DeviceOrientation
         if (typeof DeviceOrientationEvent !== 'undefined' &&
@@ -164,27 +231,73 @@
         });
     }
 
-    // ── Sensor reading + send loop ───────────────────────────────────────────
+    // ── Sensor reading + calibration ────────────────────────────────────────
     function startSensors() {
+      document.getElementById('landscape-hint').style.display = 'none';
+      document.getElementById('hint').textContent = 'Kalibrierung läuft…';
+
+      const CALIB_MS     = 5000;
+      const calibOverlay = document.getElementById('calib-overlay');
+      const calibCountEl = document.getElementById('calib-countdown');
+      const calibBarFill = document.getElementById('calib-bar-fill');
+
+      calibrating  = true;
+      calibSamples = [];
+      calibOverlay.style.display = 'flex';
+
+      const calibStart = performance.now();
+
+      window.addEventListener('deviceorientation', onOrientation);
+
+      const calibTick = setInterval(() => {
+        const elapsed  = performance.now() - calibStart;
+        const progress = Math.min(elapsed / CALIB_MS, 1);
+        const secsLeft = Math.max(0, Math.ceil((CALIB_MS - elapsed) / 1000));
+        calibCountEl.textContent = secsLeft;
+        calibBarFill.style.transform = `scaleX(${1 - progress})`;
+        if (progress >= 1) { clearInterval(calibTick); finishCalibration(); }
+      }, 100);
+    }
+
+    function onOrientation(e) {
+      const rawBeta  = e.beta  ?? 0;
+      const rawGamma = e.gamma ?? 0;
+
+      if (calibrating) {
+        calibSamples.push({ beta: rawBeta, gamma: rawGamma });
+        updateDot(rawBeta, rawGamma, 45, 45);
+      } else if (calibDone) {
+        const dBeta  = rawBeta  - neutralBeta;
+        const dGamma = rawGamma - neutralGamma;
+        const sign   = getLandscapeSign();
+        // Landscape axis swap: physical left/right lean → game X, forward/back → game Y
+        beta  =  sign * dGamma;
+        gamma = -sign * dBeta;
+        updateDot(beta, gamma, 45, 45);
+      }
+    }
+
+    function updateDot(b, g, rangeB, rangeG) {
+      const rPx = ring.clientWidth / 2 - 17;
+      const rx  = Math.max(-1, Math.min(1, g / rangeG));
+      const ry  = Math.max(-1, Math.min(1, b / rangeB));
+      dot.style.left = (ring.clientWidth  / 2 + rx * rPx) + 'px';
+      dot.style.top  = (ring.clientHeight / 2 + ry * rPx) + 'px';
+    }
+
+    function finishCalibration() {
+      calibrating = false;
+      if (calibSamples.length > 0) {
+        neutralBeta  = calibSamples.reduce((s, x) => s + x.beta,  0) / calibSamples.length;
+        neutralGamma = calibSamples.reduce((s, x) => s + x.gamma, 0) / calibSamples.length;
+      }
+      calibDone = true;
+      document.getElementById('calib-overlay').style.display = 'none';
       document.getElementById('hint').textContent = 'Neige dein Handy, um das Flugzeug zu steuern';
+      if (connected && conn?.open) conn.send({ type: 'calibrated' });
 
-      window.addEventListener('deviceorientation', e => {
-        beta  = e.beta  ?? 0;   // Vorwärts-/Rückwärtsneigung
-        gamma = e.gamma ?? 0;   // Links-/Rechtsneigung
-
-        // Visual feedback: map tilt to dot position inside ring
-        const rPx = ring.clientWidth / 2 - 17;
-        const rx  = Math.max(-1, Math.min(1, gamma / 45));
-        const ry  = Math.max(-1, Math.min(1, beta  / 45));
-        dot.style.left = (ring.clientWidth  / 2 + rx * rPx) + 'px';
-        dot.style.top  = (ring.clientHeight / 2 + ry * rPx) + 'px';
-      });
-
-      // Send at ~25 fps — no need for every frame
       sendLoop = setInterval(() => {
-        if (connected && conn?.open) {
-          conn.send({ type: 'tilt', beta, gamma });
-        }
+        if (connected && conn?.open) conn.send({ type: 'tilt', beta, gamma });
       }, 40);
     }
 

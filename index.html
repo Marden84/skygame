@@ -40,8 +40,31 @@
       font-size: 0.85rem; z-index: 10;
       backdrop-filter: blur(4px);
     }
-    .pill-ok { background: rgba(0,170,60,0.65) !important; }
-    .pill-err { background: rgba(180,30,30,0.65) !important; }
+    .pill-ok    { background: rgba(0,170,60,0.65)   !important; }
+    .pill-err   { background: rgba(180,30,30,0.65)  !important; }
+    .pill-calib { background: rgba(220,140,0,0.75)  !important; }
+
+    #calib-wait {
+      position: fixed; inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(0, 10, 40, 0.72);
+      color: white; z-index: 20;
+      gap: 1rem; pointer-events: none;
+    }
+    #calib-wait-spinner {
+      width: 50px; height: 50px;
+      border: 4px solid rgba(255,255,255,0.18);
+      border-top-color: #ffd700;
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #calib-wait p {
+      font-size: 1.15rem; opacity: 0.88;
+      text-align: center; line-height: 1.6;
+    }
   </style>
 </head>
 <body>
@@ -57,6 +80,11 @@
     <div id="score-box">🪙 <span id="score-val">0</span></div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
+
+  <div id="calib-wait">
+    <div id="calib-wait-spinner"></div>
+    <p>Controller wird kalibriert…<br><span style="font-size:0.85rem;opacity:0.6">Spiel startet gleich</span></p>
+  </div>
 
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -216,12 +244,23 @@
     conn = c;
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('hud').style.display      = 'flex';
-    const pill = document.getElementById('status-pill');
-    pill.textContent = '🎮 Verbunden';
-    pill.className   = 'pill-ok';
-    gameRunning = true;
+
+    const pill      = document.getElementById('status-pill');
+    const calibWait = document.getElementById('calib-wait');
+
+    // Wait for calibration — do NOT start game yet
+    pill.textContent = '⏳ Kalibrierung…';
+    pill.className   = 'pill-calib';
+    calibWait.style.display = 'flex';
+    gameRunning = false;
 
     c.on('data', d => {
+      if (d.type === 'calibrated') {
+        calibWait.style.display = 'none';
+        gameRunning = true;
+        pill.textContent = '🎮 Verbunden';
+        pill.className   = 'pill-ok';
+      }
       if (d.type === 'tilt') {
         tiltX = Math.max(-45, Math.min(45, d.gamma));
         tiltY = Math.max(-45, Math.min(45, d.beta));
@@ -229,6 +268,7 @@
     });
     c.on('close', () => {
       gameRunning = false;
+      calibWait.style.display = 'none';
       pill.textContent = '❌ Verbindung verloren';
       pill.className   = 'pill-err';
     });
