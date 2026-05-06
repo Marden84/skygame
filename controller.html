@@ -116,6 +116,41 @@
       border-radius: 4px;
       transform-origin: left;
     }
+
+    /* Mode selection overlay */
+    #mode-select {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(8, 6, 35, 0.96);
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.6rem;
+      z-index: 60;
+      text-align: center;
+      padding: 2rem;
+    }
+    #mode-select p { font-size: 1.1rem; opacity: 0.85; }
+    .btn-mode {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white; border: none;
+      padding: 20px 52px; border-radius: 50px;
+      font-size: 1.2rem; cursor: pointer;
+      box-shadow: 0 4px 22px rgba(102,126,234,0.45);
+      transition: transform .1s;
+      width: 260px;
+    }
+    .btn-mode:active { transform: scale(0.95); }
+    .btn-mode.joystick {
+      background: linear-gradient(135deg, #f7971e, #ffd200);
+      color: #1a1a1a;
+      box-shadow: 0 4px 22px rgba(255,200,0,0.35);
+    }
+    #ring.joystick-active {
+      touch-action: none;
+      cursor: grab;
+      border-color: rgba(255,215,0,0.5);
+      box-shadow: 0 0 24px rgba(255,215,0,0.15);
+    }
   </style>
 </head>
 <body>
@@ -141,6 +176,12 @@
     <p style="font-size:0.85rem; opacity:0.5;">Das Spiel startet automatisch</p>
   </div>
 
+  <div id="mode-select">
+    <p>Steuerungsart wählen</p>
+    <button class="btn-mode" onclick="selectMode('tilt')">✈️ Neigung</button>
+    <button class="btn-mode joystick" onclick="selectMode('joystick')">🕹️ Joystick</button>
+  </div>
+
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
 
@@ -158,6 +199,9 @@
     let calibSamples = [];
     let calibrating = false, calibDone = false;
     let conn = null, connected = false, sendLoop = null;
+    let controlMode = null;
+    let joystickActive = false;
+    let joystickOrigin = { x: 0, y: 0 };
 
     const TILT_RANGE = 30;   // ±30° = volle Auslenkung
     const SMOOTH     = 0.18; // EMA für Ausgabe
@@ -188,20 +232,7 @@
         connected = true;
         statusEl.textContent = '✅ Verbunden!';
         statusEl.className   = 'ok';
-
-        // Show landscape nudge
-        document.getElementById('landscape-hint').style.display = 'block';
-
-        // iOS 13+ requires user gesture for sensor access
-        const needsPerm =
-          (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') ||
-          (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function');
-        if (needsPerm) {
-          document.getElementById('btn-start').style.display = 'block';
-          document.getElementById('hint').textContent = 'Tippe den Button, um den Sensor freizugeben';
-        } else {
-          startSensors();
-        }
+        document.getElementById('mode-select').style.display = 'flex';
       });
 
       conn.on('data', d => {
@@ -319,6 +350,61 @@
       sendLoop = setInterval(() => {
         if (connected && conn?.open) conn.send({ type: 'tilt', beta, gamma });
       }, 40);
+    }
+
+    // ── Mode selection ──────────────────────────────────────────────────────
+    function selectMode(mode) {
+      controlMode = mode;
+      document.getElementById('mode-select').style.display = 'none';
+
+      if (mode === 'tilt') {
+        document.getElementById('landscape-hint').style.display = 'block';
+        const needsPerm =
+          (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') ||
+          (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function');
+        if (needsPerm) {
+          document.getElementById('btn-start').style.display = 'block';
+          document.getElementById('hint').textContent = 'Tippe den Button, um den Sensor freizugeben';
+        } else {
+          startSensors();
+        }
+      } else {
+        document.getElementById('hint').textContent = 'Ziehe den Stick zum Steuern';
+        enableJoystick();
+        if (connected && conn?.open) conn.send({ type: 'calibrated' });
+        sendLoop = setInterval(() => {
+          if (connected && conn?.open) conn.send({ type: 'tilt', beta, gamma });
+        }, 40);
+      }
+    }
+
+    // ── Virtual joystick ────────────────────────────────────────────────────
+    function enableJoystick() {
+      ring.classList.add('joystick-active');
+      const getRadius = () => ring.clientWidth / 2 - 17;
+
+      ring.addEventListener('touchstart', e => {
+        e.preventDefault();
+        joystickActive = true;
+        joystickOrigin = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }, { passive: false });
+
+      ring.addEventListener('touchmove', e => {
+        e.preventDefault();
+        if (!joystickActive) return;
+        const radius = getRadius();
+        const dx = e.touches[0].clientX - joystickOrigin.x;
+        const dy = e.touches[0].clientY - joystickOrigin.y;
+        gamma = Math.max(-TILT_RANGE, Math.min(TILT_RANGE, (dx / radius) * TILT_RANGE));
+        beta  = Math.max(-TILT_RANGE, Math.min(TILT_RANGE, (dy / radius) * TILT_RANGE));
+        updateDot(beta, gamma, TILT_RANGE, TILT_RANGE);
+      }, { passive: false });
+
+      ring.addEventListener('touchend', () => {
+        joystickActive = false;
+        beta = 0; gamma = 0;
+        updateDot(0, 0, TILT_RANGE, TILT_RANGE);
+      });
     }
 
     peer.on('error', () => {
