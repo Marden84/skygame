@@ -97,7 +97,7 @@
     <div id="score-box">🪙 <span id="score-val">0</span></div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v2.6</div>
+  <div id="version">v2.7</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -161,8 +161,6 @@
   new GLTFLoader().load('Plane_01.glb', gltf => {
     const model = gltf.scene;
     propeller = model.getObjectByName('Propeller');
-    model.rotation.y = Math.PI;
-    model.scale.setScalar(3);
     airplane.add(model);
   }, undefined, err => console.error('GLB Ladefehler:', err));
 
