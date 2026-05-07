@@ -158,7 +158,7 @@
   const airplane = new THREE.Group();
   scene.add(airplane);
 
-  new GLTFLoader().load('Plane_01.glb', gltf => {
+  new GLTFLoader().load('Plane_blau.glb', gltf => {
     const model = gltf.scene;
     propeller = model.getObjectByName('Propeller');
     airplane.add(model);
