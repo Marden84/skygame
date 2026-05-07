@@ -117,6 +117,20 @@
       transform-origin: left;
     }
 
+    /* Game mode selection overlay (Solo / Zu zweit) */
+    #game-mode-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(8, 6, 35, 0.96);
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.6rem;
+      z-index: 70;
+      text-align: center;
+      padding: 2rem;
+    }
+    #game-mode-overlay p { font-size: 1.1rem; opacity: 0.85; }
+
     /* Mode selection overlay */
     #mode-select {
       display: none;
@@ -176,6 +190,12 @@
     <p style="font-size:0.85rem; opacity:0.5;">Das Spiel startet automatisch</p>
   </div>
 
+  <div id="game-mode-overlay">
+    <p>Spielmodus wählen</p>
+    <button class="btn-mode" onclick="selectGameMode('solo')">✈️<br><span style="font-size:0.9rem;opacity:0.85;">Solo</span></button>
+    <button class="btn-mode joystick" onclick="selectGameMode('duo')">✈️✈️<br><span style="font-size:0.9rem;opacity:0.85;">Zu zweit</span></button>
+  </div>
+
   <div id="mode-select">
     <p>Steuerungsart wählen</p>
     <button class="btn-mode" onclick="selectMode('tilt')">✈️ Neigung</button>
@@ -232,11 +252,17 @@
         connected = true;
         statusEl.textContent = '✅ Verbunden!';
         statusEl.className   = 'ok';
-        document.getElementById('mode-select').style.display = 'flex';
       });
 
       conn.on('data', d => {
         if (d.type === 'score') scEl.textContent = d.value;
+        if (d.type === 'playerAssigned') {
+          if (d.player === 1) {
+            document.getElementById('game-mode-overlay').style.display = 'flex';
+          } else {
+            document.getElementById('mode-select').style.display = 'flex';
+          }
+        }
       });
 
       conn.on('close', () => {
@@ -352,7 +378,14 @@
       }, 40);
     }
 
-    // ── Mode selection ──────────────────────────────────────────────────────
+    // ── Game mode selection (Solo / Zu zweit) ───────────────────────────────
+    function selectGameMode(mode) {
+      document.getElementById('game-mode-overlay').style.display = 'none';
+      conn.send({ type: 'gameMode', value: mode });
+      document.getElementById('mode-select').style.display = 'flex';
+    }
+
+    // ── Control mode selection (Neigung / Joystick) ─────────────────────────
     function selectMode(mode) {
       controlMode = mode;
       document.getElementById('mode-select').style.display = 'none';

@@ -112,22 +112,6 @@
       opacity: 0; transition: opacity 0.5s ease-out;
     }
 
-    #mode-overlay {
-      position: fixed; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      background: rgba(0,20,60,0.92); color: white; z-index: 200;
-    }
-    #mode-overlay h1 { font-size: 3.5rem; margin-bottom: 0.4rem; letter-spacing: 3px; }
-    #mode-overlay .sub { font-size: 1.1rem; opacity: 0.75; margin-bottom: 2rem; }
-    .mode-buttons { display: flex; gap: 2rem; }
-    .mode-buttons button {
-      background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3);
-      color: white; border-radius: 20px; padding: 24px 40px;
-      font-size: 2.2rem; cursor: pointer; transition: background .2s; text-align: center;
-    }
-    .mode-buttons button span { display: block; font-size: 1rem; opacity: 0.8; margin-top: 6px; }
-    .mode-buttons button:hover { background: rgba(255,255,255,0.22); }
-
     #score-box2 {
       background: rgba(0,0,0,0.45); backdrop-filter: blur(8px);
       border-radius: 40px; padding: 10px 30px;
@@ -139,16 +123,7 @@
 </head>
 <body>
 
-  <div id="mode-overlay">
-    <h1>✈️ SkyCoins</h1>
-    <p class="sub">Spielmodus wählen</p>
-    <div class="mode-buttons">
-      <button onclick="selectMode('solo')">✈️<br><span>Solo</span></button>
-      <button onclick="selectMode('duo')">✈️✈️<br><span>Zu zweit</span></button>
-    </div>
-  </div>
-
-  <div id="overlay" onclick="unlockAudio()" style="display:none">
+  <div id="overlay" onclick="unlockAudio()">
     <h1>✈️ SkyCoins</h1>
     <p class="sub">Scanne den QR-Code mit deinem Handy</p>
     <div id="qrcode"></div>
@@ -177,7 +152,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v3.5</div>
+  <div id="version">v3.6</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -329,7 +304,6 @@
     const url  = base + 'controller.html?peer=' + id;
     new QRCode(document.getElementById('qrcode'), { text: url, width: 220, height: 220 });
     document.getElementById('conn-info').textContent = 'ID: ' + id;
-    // #overlay bleibt versteckt — erst nach Moduswahl sichtbar
   });
 
   peer.on('connection', c => {
@@ -337,15 +311,13 @@
     const isP1 = connectedCount === 1;
     if (isP1) conn = c; else conn2 = c;
 
+    c.send({ type: 'playerAssigned', player: connectedCount });
+
     if (connectedCount === 1) {
       initAudio().then(() => startPropSound());
       document.getElementById('hud').style.display = 'flex';
     }
-
-    if (gameMode === 'duo' && connectedCount === 1) {
-      document.getElementById('conn-info').textContent = '1 / 2 Spieler verbunden';
-      document.getElementById('overlay').style.display = 'flex';
-    } else {
+    if (connectedCount === 2) {
       document.getElementById('overlay').style.display = 'none';
     }
 
@@ -357,6 +329,18 @@
     gameRunning = false;
 
     c.on('data', d => {
+      if (d.type === 'gameMode') {
+        gameMode = d.value;
+        if (d.value === 'solo') {
+          document.getElementById('overlay').style.display = 'none';
+        } else if (d.value === 'duo') {
+          document.querySelector('#overlay .sub').textContent = 'Spieler 2: Scanne zum Beitreten';
+          document.getElementById('score-box2').style.display = 'flex';
+          airplane2.visible = true;
+          airplane2.position.x = 3;
+          updateSplitLayout();
+        }
+      }
       if (d.type === 'calibrated') {
         if (isP1) calibrated1 = true; else calibrated2 = true;
         const ready = gameMode === 'solo' ? calibrated1 : (calibrated1 && calibrated2);
@@ -788,19 +772,6 @@
       sb2.style.top = '';
       sb2.style.marginLeft = '18px';
       sb2.style.left = '';
-    }
-  }
-
-  function selectMode(mode) {
-    gameMode = mode;
-    document.getElementById('mode-overlay').style.display = 'none';
-    document.getElementById('overlay').style.display = 'flex';
-    if (mode === 'duo') {
-      document.querySelector('#overlay .sub').textContent = 'Beide Spieler scannen diesen QR-Code';
-      document.getElementById('score-box2').style.display = 'flex';
-      airplane2.visible = true;
-      airplane2.position.x = 3;
-      updateSplitLayout();
     }
   }
 
