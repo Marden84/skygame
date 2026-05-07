@@ -268,6 +268,7 @@
 
   peer.on('connection', c => {
     conn = c;
+    initAudio();
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('hud').style.display      = 'flex';
 
@@ -487,20 +488,21 @@
   }
 
   let audioCtx = null;
+  let coinBuffer = null;
+
+  async function initAudio() {
+    audioCtx = new AudioContext();
+    const res = await fetch('coin_sound.mp3');
+    const buf = await res.arrayBuffer();
+    coinBuffer = await audioCtx.decodeAudioData(buf);
+  }
 
   function playBling() {
-    if (!audioCtx) audioCtx = new AudioContext();
-    const osc  = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1400, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 0.08);
-    gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
-    osc.start(audioCtx.currentTime);
-    osc.stop(audioCtx.currentTime + 0.18);
+    if (!audioCtx || !coinBuffer) return;
+    const src = audioCtx.createBufferSource();
+    src.buffer = coinBuffer;
+    src.connect(audioCtx.destination);
+    src.start();
   }
 
   function endGame() {
