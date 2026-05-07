@@ -134,7 +134,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v3.0</div>
+  <div id="version">v3.1</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -260,6 +260,7 @@
   let conn = null;
 
   peer.on('open', id => {
+    unlockAudio();
     const base = location.href.replace(/[^/]*$/, '');
     const url  = base + 'controller.html?peer=' + id;
     new QRCode(document.getElementById('qrcode'), { text: url, width: 220, height: 220 });
@@ -487,36 +488,28 @@
     renderer.render(scene, camera);
   }
 
-  let audioCtx = null;
+  let audioCtx = (() => { try { return new AudioContext(); } catch(e) { return null; } })();
+  if (audioCtx) audioCtx.resume().catch(() => {});
   let coinBuffer = null;
   let propBuffer = null;
   let propSource = null;
 
   async function unlockAudio() {
-    if (audioCtx) { audioCtx.resume(); return; }
+    if (!audioCtx) { try { audioCtx = new AudioContext(); } catch(e) { return; } }
+    audioCtx.resume().catch(() => {});
+    if (coinBuffer && propBuffer) return;
     try {
-      audioCtx = new AudioContext();
       const [coinRes, propRes] = await Promise.all([fetch('coin_sound.mp3'), fetch('prop-plane.mp3')]);
       const [coinBuf, propBuf] = await Promise.all([coinRes.arrayBuffer(), propRes.arrayBuffer()]);
       [coinBuffer, propBuffer] = await Promise.all([
         audioCtx.decodeAudioData(coinBuf),
         audioCtx.decodeAudioData(propBuf)
       ]);
-    } catch(e) { console.warn('Audio init failed:', e); }
+    } catch(e) { console.warn('Audio load failed:', e); }
   }
 
   async function initAudio() {
-    if (audioCtx) { audioCtx.resume(); return; }
-    try {
-      audioCtx = new AudioContext();
-      await audioCtx.resume();
-      const [coinRes, propRes] = await Promise.all([fetch('coin_sound.mp3'), fetch('prop-plane.mp3')]);
-      const [coinBuf, propBuf] = await Promise.all([coinRes.arrayBuffer(), propRes.arrayBuffer()]);
-      [coinBuffer, propBuffer] = await Promise.all([
-        audioCtx.decodeAudioData(coinBuf),
-        audioCtx.decodeAudioData(propBuf)
-      ]);
-    } catch(e) { console.warn('Audio init failed:', e); }
+    await unlockAudio();
   }
 
   function playBling() {
