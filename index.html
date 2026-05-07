@@ -33,6 +33,35 @@
       font-size: 1.9rem; font-weight: bold;
       color: #ffd700; text-shadow: 0 0 12px rgba(255,215,0,0.6);
     }
+    #timer-box {
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(8px);
+      border-radius: 40px; padding: 10px 30px;
+      font-size: 1.9rem; font-weight: bold;
+      color: #ffffff; margin-left: 18px;
+      transition: color 0.3s;
+    }
+
+    #end-overlay {
+      position: fixed; inset: 0;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(0, 20, 60, 0.92);
+      color: white; z-index: 110; gap: 0.6rem;
+    }
+    #end-overlay h2 { font-size: 2.4rem; letter-spacing: 2px; margin-bottom: 0.4rem; }
+    #end-overlay .sub { font-size: 1.1rem; opacity: 0.7; }
+    #end-score { font-size: 4.5rem; font-weight: bold; color: #ffd700; text-shadow: 0 0 24px rgba(255,215,0,0.55); line-height: 1.1; }
+    #btn-restart {
+      margin-top: 1.4rem;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white; border: none;
+      padding: 16px 44px; border-radius: 50px;
+      font-size: 1.15rem; cursor: pointer;
+      box-shadow: 0 4px 22px rgba(102,126,234,0.45);
+      transition: transform .1s;
+    }
+    #btn-restart:active { transform: scale(0.95); }
 
     #status-pill {
       position: fixed; bottom: 22px; right: 22px;
@@ -95,6 +124,14 @@
 
   <div id="hud" style="display:none">
     <div id="score-box">🪙 <span id="score-val">0</span></div>
+    <div id="timer-box">⏱ <span id="timer-val">90</span>s</div>
+  </div>
+
+  <div id="end-overlay">
+    <h2>⏱ Zeit abgelaufen!</h2>
+    <p class="sub">Dein Score</p>
+    <div id="end-score">0</div>
+    <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
   <div id="version">v2.7</div>
@@ -202,7 +239,8 @@
   for (let i = 0; i < 14; i++) spawnCoin(-18 - i * 14);
 
   // ── GAME STATE ─────────────────────────────────────────────────────────────
-  let score = 0, gameRunning = false;
+  let score = 0, gameRunning = false, gameOver = false;
+  let timeLeft = 90;
   let tiltX = 0, tiltY = 0;
   let planeX = 0, planeY = 0;
   let spawnTimer = 0;
@@ -211,6 +249,7 @@
   let lightningInterval = 2 + Math.random() * 5;
 
   const scoreEl = document.getElementById('score-val');
+  const timerEl = document.getElementById('timer-val');
 
   // ── PEERJS ─────────────────────────────────────────────────────────────────
   const peer = new Peer(undefined, { debug: 0 });
@@ -341,6 +380,13 @@
         if (Math.random() > 0.2) spawnCoin(-185);
       }
 
+      // Countdown timer
+      timeLeft -= dt;
+      const secsLeft = Math.ceil(timeLeft);
+      timerEl.textContent = secsLeft;
+      timerEl.parentElement.style.color = secsLeft <= 10 ? '#ff4444' : '#ffffff';
+      if (timeLeft <= 0) { endGame(); return; }
+
       // Lightning spawn (random interval 2–7s, 30% chance of double strike)
       lightningTimer += dt;
       if (lightningTimer > lightningInterval) {
@@ -418,6 +464,38 @@
 
     renderer.render(scene, camera);
   }
+
+  function endGame() {
+    gameRunning = false;
+    gameOver = true;
+    document.getElementById('end-score').textContent = score;
+    document.getElementById('end-overlay').style.display = 'flex';
+    if (conn && conn.open) conn.send({ type: 'gameover', score });
+  }
+
+  function restartGame() {
+    score = 0; timeLeft = 90; gameOver = false;
+    planeX = 0; planeY = 0;
+    scoreEl.textContent = 0;
+    timerEl.textContent = 90;
+    timerEl.parentElement.style.color = '#ffffff';
+
+    [...coins].forEach(o => scene.remove(o));
+    [...clouds].forEach(o => scene.remove(o));
+    [...lightnings].forEach(o => {
+      if (o.userData.glow) scene.remove(o.userData.glow);
+      scene.remove(o);
+    });
+    coins.length = 0; clouds.length = 0; lightnings.length = 0;
+
+    for (let i = 0; i < 22; i++) spawnCloud(-20 - i * 9);
+    for (let i = 0; i < 14; i++) spawnCoin(-18 - i * 14);
+
+    document.getElementById('end-overlay').style.display = 'none';
+    gameRunning = true;
+  }
+
+  document.getElementById('btn-restart').addEventListener('click', restartGame);
 
   animate();
 
