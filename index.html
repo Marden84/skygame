@@ -69,9 +69,9 @@
 
     #lightning-flash {
       position: fixed; inset: 0;
-      background: rgba(160, 210, 255, 0.88);
+      background: rgba(240, 250, 255, 0.95);
       pointer-events: none; z-index: 50;
-      opacity: 0; transition: opacity 0.35s ease-out;
+      opacity: 0; transition: opacity 0.48s ease-out;
     }
 
     #hit-label {
@@ -105,7 +105,7 @@
   </div>
 
   <div id="lightning-flash"></div>
-  <div id="hit-label">⚡ −5</div>
+  <div id="hit-label">⚡ −10</div>
 
   <script type="importmap">
   {
@@ -208,6 +208,7 @@
   let spawnTimer = 0;
   const lightnings = [];
   let lightningTimer = 0;
+  let lightningInterval = 2 + Math.random() * 5;
 
   const scoreEl = document.getElementById('score-val');
 
@@ -269,22 +270,31 @@
     const pts = [];
     let lx = 0, ly = 0;
     pts.push(new THREE.Vector3(0, 0, 0));
-    for (let i = 0; i < 7; i++) {
-      lx += (Math.random() - 0.5) * 1.8;
-      ly -= 1.3 + Math.random() * 1.0;
+    const segments = 10 + Math.floor(Math.random() * 6);
+    for (let i = 0; i < segments; i++) {
+      lx += (Math.random() - 0.5) * 3.2;
+      ly -= 2.0 + Math.random() * 1.5;
       pts.push(new THREE.Vector3(lx, ly, 0));
     }
 
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    const mat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+    const geo     = new THREE.BufferGeometry().setFromPoints(pts);
+    const glowGeo = new THREE.BufferGeometry().setFromPoints(pts);
+
+    const mat     = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+    const glowMat = new THREE.LineBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.35 });
+
     const bolt = new THREE.Line(geo, mat);
+    const glow = new THREE.Line(glowGeo, glowMat);
     bolt.position.set(bx, by, bz);
+    glow.position.set(bx, by, bz);
 
     bolt.userData.age   = 0;
-    bolt.userData.life  = 0.7;
+    bolt.userData.life  = 1.0 + Math.random() * 0.6;
     bolt.userData.dropY = ly;
     bolt.userData.hit   = false;
+    bolt.userData.glow  = glow;
 
+    scene.add(glow);
     scene.add(bolt);
     lightnings.push(bolt);
   }
@@ -331,11 +341,13 @@
         if (Math.random() > 0.2) spawnCoin(-185);
       }
 
-      // Lightning spawn (every ~5s with 60% chance)
+      // Lightning spawn (random interval 2–7s, 30% chance of double strike)
       lightningTimer += dt;
-      if (lightningTimer > 5) {
+      if (lightningTimer > lightningInterval) {
         lightningTimer = 0;
-        if (Math.random() > 0.4) spawnLightning();
+        lightningInterval = 2 + Math.random() * 5;
+        const count = Math.random() < 0.3 ? 2 : 1;
+        for (let b = 0; b < count; b++) spawnLightning();
       }
 
       // Update lightning bolts
@@ -343,9 +355,12 @@
         const bolt = lightnings[i];
         bolt.userData.age += dt;
         bolt.position.z += SPEED * dt;
+        if (bolt.userData.glow) bolt.userData.glow.position.z = bolt.position.z;
 
         // Flicker at ~20 Hz
-        bolt.material.opacity = Math.floor(bolt.userData.age * 20) % 2 === 0 ? 1.0 : 0.1;
+        const flickerOn = Math.floor(bolt.userData.age * 20) % 2 === 0;
+        bolt.material.opacity = flickerOn ? 1.0 : 0.1;
+        if (bolt.userData.glow) bolt.userData.glow.material.opacity = flickerOn ? 0.35 : 0.0;
 
         // Collision when bolt passes through plane's z-plane
         if (!bolt.userData.hit && Math.abs(bolt.position.z) < 3) {
@@ -353,18 +368,19 @@
           const dy = bolt.position.y - planeY;
           if (dx < 2.5 && dy > -1 && dy < Math.abs(bolt.userData.dropY) + 1) {
             bolt.userData.hit = true;
-            score = Math.max(0, score - 5);
+            score = Math.max(0, score - 10);
             scoreEl.textContent = score;
             if (conn && conn.open) conn.send({ type: 'score', value: score });
             const flash    = document.getElementById('lightning-flash');
             const hitLabel = document.getElementById('hit-label');
             flash.style.opacity    = '1';
             hitLabel.style.opacity = '1';
-            setTimeout(() => { flash.style.opacity = '0'; hitLabel.style.opacity = '0'; }, 320);
+            setTimeout(() => { flash.style.opacity = '0'; hitLabel.style.opacity = '0'; }, 480);
           }
         }
 
         if (bolt.userData.age > bolt.userData.life || bolt.position.z > 22) {
+          if (bolt.userData.glow) { scene.remove(bolt.userData.glow); bolt.userData.glow.geometry.dispose(); }
           scene.remove(bolt);
           bolt.geometry.dispose();
           lightnings.splice(i, 1);
