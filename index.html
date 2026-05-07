@@ -134,7 +134,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v3.3</div>
+  <div id="version">v3.4</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -232,9 +232,9 @@
     if (!coinTemplate) return;
     const coin = coinTemplate.clone();
     coin.position.set((Math.random() - .5) * 18, -3.5 + Math.random() * 8, z);
-    coin.userData.rotX = (Math.random() - 0.5) * 3;
-    coin.userData.rotY = (Math.random() - 0.5) * 4;
-    coin.userData.rotZ = (Math.random() - 0.5) * 3;
+    coin.userData.rotX = 0;
+    coin.userData.rotY = 1.5 + Math.random() * 2.5;
+    coin.userData.rotZ = 0;
     scene.add(coin);
     coins.push(coin);
   }
