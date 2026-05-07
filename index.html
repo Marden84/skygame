@@ -120,7 +120,6 @@
     <p class="sub">Scanne den QR-Code mit deinem Handy</p>
     <div id="qrcode"></div>
     <div id="conn-info">Verbindungs-ID wird geladen…</div>
-    <p id="audio-hint" style="margin-top:1.2rem;font-size:0.78rem;opacity:0.45;letter-spacing:1px;">🔊 Klick irgendwo für Sound</p>
   </div>
 
   <div id="hud" style="display:none">
@@ -135,7 +134,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v2.9</div>
+  <div id="version">v3.0</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -269,7 +268,7 @@
 
   peer.on('connection', c => {
     conn = c;
-    initAudio();
+    initAudio().then(() => startPropSound());
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('hud').style.display      = 'flex';
 
@@ -490,15 +489,19 @@
 
   let audioCtx = null;
   let coinBuffer = null;
+  let propBuffer = null;
+  let propSource = null;
 
   async function unlockAudio() {
     if (audioCtx) { audioCtx.resume(); return; }
     try {
       audioCtx = new AudioContext();
-      const res = await fetch('coin_sound.mp3');
-      const buf = await res.arrayBuffer();
-      coinBuffer = await audioCtx.decodeAudioData(buf);
-      document.getElementById('audio-hint')?.remove();
+      const [coinRes, propRes] = await Promise.all([fetch('coin_sound.mp3'), fetch('prop-plane.mp3')]);
+      const [coinBuf, propBuf] = await Promise.all([coinRes.arrayBuffer(), propRes.arrayBuffer()]);
+      [coinBuffer, propBuffer] = await Promise.all([
+        audioCtx.decodeAudioData(coinBuf),
+        audioCtx.decodeAudioData(propBuf)
+      ]);
     } catch(e) { console.warn('Audio init failed:', e); }
   }
 
@@ -507,24 +510,45 @@
     try {
       audioCtx = new AudioContext();
       await audioCtx.resume();
-      const res = await fetch('coin_sound.mp3');
-      const buf = await res.arrayBuffer();
-      coinBuffer = await audioCtx.decodeAudioData(buf);
+      const [coinRes, propRes] = await Promise.all([fetch('coin_sound.mp3'), fetch('prop-plane.mp3')]);
+      const [coinBuf, propBuf] = await Promise.all([coinRes.arrayBuffer(), propRes.arrayBuffer()]);
+      [coinBuffer, propBuffer] = await Promise.all([
+        audioCtx.decodeAudioData(coinBuf),
+        audioCtx.decodeAudioData(propBuf)
+      ]);
     } catch(e) { console.warn('Audio init failed:', e); }
   }
 
-  async function playBling() {
+  function playBling() {
     if (!audioCtx || !coinBuffer) return;
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
     const src = audioCtx.createBufferSource();
     src.buffer = coinBuffer;
     src.connect(audioCtx.destination);
     src.start();
   }
 
+  function startPropSound() {
+    if (!audioCtx || !propBuffer || propSource) return;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.5;
+    gain.connect(audioCtx.destination);
+    propSource = audioCtx.createBufferSource();
+    propSource.buffer = propBuffer;
+    propSource.loop = true;
+    propSource.connect(gain);
+    propSource.start();
+  }
+
+  function stopPropSound() {
+    if (!propSource) return;
+    try { propSource.stop(); } catch(e) {}
+    propSource = null;
+  }
+
   function endGame() {
     gameRunning = false;
     gameOver = true;
+    stopPropSound();
     document.getElementById('end-score').textContent = score;
     document.getElementById('end-overlay').style.display = 'flex';
     if (conn && conn.open) conn.send({ type: 'gameover', score });
@@ -536,6 +560,7 @@
     scoreEl.textContent = 0;
     timerEl.textContent = 90;
     timerEl.parentElement.style.color = '#ffffff';
+    startPropSound();
 
     [...coins].forEach(o => scene.remove(o));
     [...clouds].forEach(o => scene.remove(o));
