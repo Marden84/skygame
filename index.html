@@ -157,6 +157,9 @@
   <script type="module">
   import * as THREE from 'three';
   import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { Line2 } from 'three/addons/lines/Line2.js';
+  import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+  import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
   // ── SCENE ──────────────────────────────────────────────────────────────────
   const scene    = new THREE.Scene();
@@ -245,6 +248,7 @@
   let planeX = 0, planeY = 0;
   let spawnTimer = 0;
   const lightnings = [];
+  const lineMaterials = [];
   let lightningTimer = 0;
   let lightningInterval = 2 + Math.random() * 5;
 
@@ -316,23 +320,31 @@
       pts.push(new THREE.Vector3(lx, ly, 0));
     }
 
-    const geo     = new THREE.BufferGeometry().setFromPoints(pts);
-    const glowGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    const positions = [];
+    pts.forEach(p => positions.push(p.x, p.y, p.z));
 
-    const mat     = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
-    const glowMat = new THREE.LineBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.35 });
+    const res = new THREE.Vector2(innerWidth, innerHeight);
 
-    const bolt = new THREE.Line(geo, mat);
-    const glow = new THREE.Line(glowGeo, glowMat);
+    const boltGeo = new LineGeometry();
+    boltGeo.setPositions(positions);
+    const boltMat = new LineMaterial({ color: 0xffffff, linewidth: 3, transparent: true, opacity: 1, resolution: res });
+
+    const glowGeo2 = new LineGeometry();
+    glowGeo2.setPositions(positions);
+    const glowMat = new LineMaterial({ color: 0x88ccff, linewidth: 7, transparent: true, opacity: 0.35, resolution: res.clone() });
+
+    const bolt = new Line2(boltGeo, boltMat);
+    const glow = new Line2(glowGeo2, glowMat);
     bolt.position.set(bx, by, bz);
     glow.position.set(bx, by, bz);
 
-    bolt.userData.age   = 0;
-    bolt.userData.life  = 1.0 + Math.random() * 0.6;
-    bolt.userData.dropY = ly;
-    bolt.userData.hit   = false;
-    bolt.userData.glow  = glow;
+    bolt.userData.age     = 0;
+    bolt.userData.life    = 1.0 + Math.random() * 0.6;
+    bolt.userData.dropY   = ly;
+    bolt.userData.hit     = false;
+    bolt.userData.glow    = glow;
 
+    lineMaterials.push(boltMat, glowMat);
     scene.add(glow);
     scene.add(bolt);
     lightnings.push(bolt);
@@ -377,7 +389,8 @@
       if (spawnTimer > 1.1) {
         spawnTimer = 0;
         spawnCloud(-210);
-        if (Math.random() > 0.2) spawnCoin(-185);
+        spawnCoin(-185);
+        if (Math.random() < 0.5) spawnCoin(-185);
       }
 
       // Countdown timer
@@ -412,7 +425,7 @@
         if (!bolt.userData.hit && Math.abs(bolt.position.z) < 3) {
           const dx = Math.abs(bolt.position.x - planeX);
           const dy = bolt.position.y - planeY;
-          if (dx < 2.5 && dy > -1 && dy < Math.abs(bolt.userData.dropY) + 1) {
+          if (dx < 4.5 && dy > -2 && dy < Math.abs(bolt.userData.dropY) + 2) {
             bolt.userData.hit = true;
             score = Math.max(0, score - 10);
             scoreEl.textContent = score;
@@ -426,9 +439,16 @@
         }
 
         if (bolt.userData.age > bolt.userData.life || bolt.position.z > 22) {
-          if (bolt.userData.glow) { scene.remove(bolt.userData.glow); bolt.userData.glow.geometry.dispose(); }
+          if (bolt.userData.glow) {
+            scene.remove(bolt.userData.glow);
+            bolt.userData.glow.geometry.dispose();
+            const gi = lineMaterials.indexOf(bolt.userData.glow.material);
+            if (gi !== -1) { bolt.userData.glow.material.dispose(); lineMaterials.splice(gi, 1); }
+          }
           scene.remove(bolt);
           bolt.geometry.dispose();
+          const bi = lineMaterials.indexOf(bolt.material);
+          if (bi !== -1) { bolt.material.dispose(); lineMaterials.splice(bi, 1); }
           lightnings.splice(i, 1);
         }
       }
@@ -451,7 +471,7 @@
         const dy = c.position.y - planeY;
         const dz = c.position.z - airplane.position.z;
 
-        if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 2.3) {
+        if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 4.0) {
           score++;
           scoreEl.textContent = score;
           if (conn && conn.open) conn.send({ type: 'score', value: score });
@@ -503,6 +523,7 @@
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
+    lineMaterials.forEach(m => m.resolution.set(innerWidth, innerHeight));
   });
 
   </script>
