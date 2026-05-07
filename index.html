@@ -134,7 +134,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v3.2</div>
+  <div id="version">v3.3</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -206,6 +206,12 @@
 
   // ── CLOUDS & COINS ─────────────────────────────────────────────────────────
   const clouds = [], coins = [];
+  let coinTemplate = null;
+
+  new GLTFLoader().load('Coin.glb', gltf => {
+    coinTemplate = gltf.scene;
+    for (let i = 0; i < 14; i++) spawnCoin(-18 - i * 14);
+  }, undefined, err => console.error('Coin GLB Ladefehler:', err));
 
   function spawnCloud(z) {
     const g   = new THREE.Group();
@@ -223,13 +229,9 @@
   }
 
   function spawnCoin(z) {
-    const coin = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.55, 0.55, 0.14, 24),
-      new THREE.MeshPhongMaterial({ color: 0xffd700, emissive: 0x996600, shininess: 160 })
-    );
+    if (!coinTemplate) return;
+    const coin = coinTemplate.clone();
     coin.position.set((Math.random() - .5) * 18, -3.5 + Math.random() * 8, z);
-    coin.rotation.x = Math.PI / 2;
-    coin.userData.speed = 1;
     coin.userData.rotX = (Math.random() - 0.5) * 3;
     coin.userData.rotY = (Math.random() - 0.5) * 4;
     coin.userData.rotZ = (Math.random() - 0.5) * 3;
@@ -239,7 +241,7 @@
 
   // Pre-populate scene
   for (let i = 0; i < 22; i++) spawnCloud(-20 - i * 9);
-  for (let i = 0; i < 14; i++) spawnCoin(-18 - i * 14);
+  // Coins werden im Coin.glb-Loader-Callback gespawnt (nach Template-Load)
 
   // ── GAME STATE ─────────────────────────────────────────────────────────────
   let score = 0, gameRunning = false, gameOver = false;
