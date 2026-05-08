@@ -165,7 +165,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v4.8</div>
+  <div id="version">v4.9</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -279,15 +279,6 @@
   const clouds = [], coins = [];
   let cloudTemplates = [], coinTemplate = null;
 
-  const cloudMat = new THREE.MeshStandardMaterial({
-    color: 0xf0f5ff,
-    metalness: 0.0,
-    roughness: 1.0,
-    transparent: true,
-    opacity: 0.88,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
 
   new GLTFLoader().load('Cloud.glb', gltf => {
     gltf.scene.traverse(obj => {
@@ -308,7 +299,14 @@
     const cloud = template.clone(true);
     cloud.traverse(child => {
       if (child.isMesh) {
-        child.material = cloudMat;
+        child.material = child.material.clone();
+        child.material.transparent = true;
+        child.material.opacity = 0.88;
+        child.material.depthWrite = false;
+        child.material.side = THREE.DoubleSide;
+        child.material.metalness = 0.0;
+        child.material.roughness = 1.0;
+        child.material.needsUpdate = true;
         child.renderOrder = 1;
       }
     });
