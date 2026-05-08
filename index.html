@@ -127,7 +127,7 @@
 </head>
 <body>
 
-  <div id="overlay" onclick="unlockAudio()">
+  <div id="overlay">
     <h1>✈️ SkyCoins</h1>
     <p class="sub">Scanne den QR-Code mit deinem Handy</p>
     <div id="qrcode"></div>
@@ -165,7 +165,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v4.9</div>
+  <div id="version">v5.0</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -359,7 +359,6 @@
   let conn = null;
 
   peer.on('open', id => {
-    unlockAudio();
     const base = location.href.replace(/[^/]*$/, '');
     const url  = base + 'controller.html?peer=' + id;
     new QRCode(document.getElementById('qrcode'), { text: url, width: 220, height: 220 });
@@ -377,7 +376,6 @@
     });
 
     if (connectedCount === 1) {
-      initAudio().then(() => startPropSound());
       document.getElementById('hud').style.display = 'flex';
     }
     if (connectedCount === 2) {
@@ -415,6 +413,8 @@
           gameRunning = true;
           pill.textContent = '🎮 Verbunden';
           pill.className   = 'pill-ok';
+          if (conn  && conn.open)  conn.send({ type: 'sound', name: 'propStart' });
+          if (conn2 && conn2.open) conn2.send({ type: 'sound', name: 'propStart' });
         }
       }
       if (d.type === 'tilt') {
@@ -481,7 +481,6 @@
     scene.add(glow);
     scene.add(bolt);
     lightnings.push(bolt);
-    playLightning();
   }
 
   // ── GAME LOOP ──────────────────────────────────────────────────────────────
@@ -599,7 +598,7 @@
             bolt.userData.hit = true;
             score = Math.max(0, score - 5);
             scoreEl.textContent = score;
-            if (conn && conn.open) conn.send({ type: 'score', value: score });
+            if (conn && conn.open) { conn.send({ type: 'score', value: score }); conn.send({ type: 'sound', name: 'lightning' }); }
             const flash    = document.getElementById('lightning-flash');
             const hitLabel = document.getElementById('hit-label');
             flash.style.opacity    = '1';
@@ -614,7 +613,7 @@
             bolt.userData.hit2 = true;
             score2 = Math.max(0, score2 - 5);
             scoreEl2.textContent = score2;
-            if (conn2 && conn2.open) conn2.send({ type: 'score', value: score2 });
+            if (conn2 && conn2.open) { conn2.send({ type: 'score', value: score2 }); conn2.send({ type: 'sound', name: 'lightning' }); }
             document.getElementById('lightning-flash').style.opacity = '1';
             document.getElementById('hit-label').style.opacity = '1';
             setTimeout(() => { document.getElementById('lightning-flash').style.opacity='0'; document.getElementById('hit-label').style.opacity='0'; }, 480);
@@ -656,8 +655,7 @@
         const dz = c.position.z - airplane.position.z;
         if (Math.sqrt(dx*dx + dy*dy + dz*dz) < 4.0) {
           score++; scoreEl.textContent = score;
-          playBling();
-          if (conn && conn.open) conn.send({ type: 'score', value: score });
+          if (conn && conn.open) { conn.send({ type: 'score', value: score }); conn.send({ type: 'sound', name: 'bling' }); }
           scene.remove(c); coins.splice(i, 1);
           removed = true;
         }
@@ -667,8 +665,7 @@
           const dz2 = c.position.z - airplane2.position.z;
           if (Math.sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2) < 4.0) {
             score2++; scoreEl2.textContent = score2;
-            playBling();
-            if (conn2 && conn2.open) conn2.send({ type: 'score', value: score2 });
+            if (conn2 && conn2.open) { conn2.send({ type: 'score', value: score2 }); conn2.send({ type: 'sound', name: 'bling' }); }
             scene.remove(c); coins.splice(i, 1);
             removed = true;
           }
@@ -707,74 +704,11 @@
     }
   }
 
-  let audioCtx = (() => { try { return new AudioContext(); } catch(e) { return null; } })();
-  if (audioCtx) audioCtx.resume().catch(() => {});
-  let coinBuffer = null;
-  let propBuffer = null;
-  let lightningBuffer = null;
-  let propSource = null;
-
-  async function unlockAudio() {
-    if (!audioCtx) { try { audioCtx = new AudioContext(); } catch(e) { return; } }
-    audioCtx.resume().catch(() => {});
-    if (coinBuffer && propBuffer && lightningBuffer) return;
-    try {
-      const [coinRes, propRes, lightRes] = await Promise.all([fetch('coin_sound.mp3'), fetch('prop-plane.mp3'), fetch('lightning.mp3')]);
-      const [coinBuf, propBuf, lightBuf] = await Promise.all([coinRes.arrayBuffer(), propRes.arrayBuffer(), lightRes.arrayBuffer()]);
-      [coinBuffer, propBuffer, lightningBuffer] = await Promise.all([
-        audioCtx.decodeAudioData(coinBuf),
-        audioCtx.decodeAudioData(propBuf),
-        audioCtx.decodeAudioData(lightBuf)
-      ]);
-    } catch(e) { console.warn('Audio load failed:', e); }
-  }
-
-  async function initAudio() {
-    await unlockAudio();
-  }
-
-  function playBling() {
-    if (!audioCtx || !coinBuffer) return;
-    const src = audioCtx.createBufferSource();
-    src.buffer = coinBuffer;
-    src.connect(audioCtx.destination);
-    src.start();
-  }
-
-  function playLightning() {
-    if (!audioCtx || !lightningBuffer) return;
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
-    gain.connect(audioCtx.destination);
-    const src = audioCtx.createBufferSource();
-    src.buffer = lightningBuffer;
-    src.connect(gain);
-    src.start();
-  }
-
-  function startPropSound() {
-    if (!audioCtx || !propBuffer || propSource) return;
-    const gain = audioCtx.createGain();
-    gain.gain.value = 0.5;
-    gain.connect(audioCtx.destination);
-    propSource = audioCtx.createBufferSource();
-    propSource.buffer = propBuffer;
-    propSource.loop = true;
-    propSource.connect(gain);
-    propSource.start();
-  }
-
-  function stopPropSound() {
-    if (!propSource) return;
-    try { propSource.stop(); } catch(e) {}
-    propSource = null;
-  }
-
   function endGame() {
     gameRunning = false;
     gameOver = true;
-    stopPropSound();
+    if (conn  && conn.open)  conn.send({ type: 'sound', name: 'propStop' });
+    if (conn2 && conn2.open) conn2.send({ type: 'sound', name: 'propStop' });
     if (gameMode === 'duo') {
       document.getElementById('end-score').style.display = 'none';
       document.getElementById('end-sub').style.display = 'none';
@@ -799,7 +733,8 @@
     scoreEl.textContent = 0;
     timerEl.textContent = 60;
     timerEl.parentElement.style.color = '#ffffff';
-    startPropSound();
+    if (conn  && conn.open)  conn.send({ type: 'sound', name: 'propStart' });
+    if (conn2 && conn2.open) conn2.send({ type: 'sound', name: 'propStart' });
     if (gameMode === 'duo') {
       score2 = 0; planeX2 = 6; planeY2 = 0;
       scoreEl2.textContent = 0;

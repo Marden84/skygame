@@ -263,6 +263,12 @@
             document.getElementById('mode-select').style.display = 'flex';
           }
         }
+        if (d.type === 'sound') {
+          if (d.name === 'bling')     playBling();
+          if (d.name === 'lightning') playLightning();
+          if (d.name === 'propStart') startPropSound();
+          if (d.name === 'propStop')  stopPropSound();
+        }
       });
 
       conn.on('close', () => {
@@ -378,8 +384,56 @@
       }, 40);
     }
 
+    // ── Audio ───────────────────────────────────────────────────────────────
+    let audioCtx = null, coinBuffer = null, propBuffer = null, lightningBuffer = null, propSource = null;
+
+    async function initAudio() {
+      if (audioCtx) return;
+      try { audioCtx = new AudioContext(); } catch(e) { return; }
+      await audioCtx.resume();
+      try {
+        const [coinRes, propRes, lightRes] = await Promise.all([fetch('coin_sound.mp3'), fetch('prop-plane.mp3'), fetch('lightning.mp3')]);
+        const [coinBuf, propBuf, lightBuf] = await Promise.all([coinRes.arrayBuffer(), propRes.arrayBuffer(), lightRes.arrayBuffer()]);
+        [coinBuffer, propBuffer, lightningBuffer] = await Promise.all([
+          audioCtx.decodeAudioData(coinBuf), audioCtx.decodeAudioData(propBuf), audioCtx.decodeAudioData(lightBuf)
+        ]);
+      } catch(e) { console.warn('Audio load failed:', e); }
+    }
+
+    function playBling() {
+      if (!audioCtx || !coinBuffer) return;
+      const src = audioCtx.createBufferSource();
+      src.buffer = coinBuffer; src.connect(audioCtx.destination); src.start();
+    }
+
+    function playLightning() {
+      if (!audioCtx || !lightningBuffer) return;
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+      gain.connect(audioCtx.destination);
+      const src = audioCtx.createBufferSource();
+      src.buffer = lightningBuffer; src.connect(gain); src.start();
+    }
+
+    function startPropSound() {
+      if (!audioCtx || !propBuffer || propSource) return;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.5; gain.connect(audioCtx.destination);
+      propSource = audioCtx.createBufferSource();
+      propSource.buffer = propBuffer; propSource.loop = true;
+      propSource.connect(gain); propSource.start();
+    }
+
+    function stopPropSound() {
+      if (!propSource) return;
+      try { propSource.stop(); } catch(e) {}
+      propSource = null;
+    }
+
     // ── Game mode selection (Solo / Zu zweit) ───────────────────────────────
     function selectGameMode(mode) {
+      initAudio();
       document.getElementById('game-mode-overlay').style.display = 'none';
       conn.send({ type: 'gameMode', value: mode });
       document.getElementById('mode-select').style.display = 'flex';
