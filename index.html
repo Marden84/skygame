@@ -165,7 +165,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v5.0</div>
+  <div id="version">v5.1</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -300,14 +300,10 @@
     cloud.traverse(child => {
       if (child.isMesh) {
         child.material = child.material.clone();
-        child.material.transparent = true;
-        child.material.opacity = 0.88;
-        child.material.depthWrite = false;
-        child.material.side = THREE.DoubleSide;
+        child.material.transparent = false;
         child.material.metalness = 0.0;
         child.material.roughness = 1.0;
         child.material.needsUpdate = true;
-        child.renderOrder = 1;
       }
     });
     const scale = 0.7 + Math.random() * 2.3;
