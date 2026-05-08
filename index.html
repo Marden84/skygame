@@ -165,7 +165,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v5.1</div>
+  <div id="version">v5.2</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -302,7 +302,11 @@
         child.material = child.material.clone();
         child.material.transparent = false;
         child.material.metalness = 0.0;
-        child.material.roughness = 1.0;
+        child.material.roughness = 0.85;
+        child.material.emissive = new THREE.Color(0xffffff);
+        child.material.emissiveIntensity = 0.18;
+        const b = 0.88 + Math.random() * 0.12;
+        child.material.color.setRGB(b, b, b);
         child.material.needsUpdate = true;
       }
     });
