@@ -152,7 +152,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v3.6</div>
+  <div id="version">v3.7</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -311,7 +311,10 @@
     const isP1 = connectedCount === 1;
     if (isP1) conn = c; else conn2 = c;
 
-    c.send({ type: 'playerAssigned', player: connectedCount });
+    const playerNum = connectedCount;
+    c.on('open', () => {
+      c.send({ type: 'playerAssigned', player: playerNum });
+    });
 
     if (connectedCount === 1) {
       initAudio().then(() => startPropSound());
