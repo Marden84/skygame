@@ -31,8 +31,8 @@
       backdrop-filter: blur(8px);
       border-radius: 40px; padding: 10px 30px;
       font-size: 1.9rem; font-weight: bold;
-      color: #ffd700; text-shadow: 0 0 12px rgba(255,215,0,0.6);
-      display: flex; flex-direction: column; align-items: center;
+      color: white;
+      display: flex; flex-direction: row; align-items: center; gap: 0.5rem;
     }
     #timer-box {
       background: rgba(0,0,0,0.45);
@@ -117,13 +117,11 @@
       background: rgba(0,0,0,0.45); backdrop-filter: blur(8px);
       border-radius: 40px; padding: 10px 30px;
       font-size: 1.9rem; font-weight: bold;
-      color: #ff6644; text-shadow: 0 0 12px rgba(255,80,40,0.6);
-      margin-left: 18px;
-      flex-direction: column; align-items: center;
+      color: white; margin-left: 18px;
+      display: flex; flex-direction: row; align-items: center; gap: 0.5rem;
     }
     .player-label {
-      display: none; font-size: 0.6rem; font-weight: normal;
-      letter-spacing: 2px; opacity: 0.7; margin-bottom: 2px;
+      display: none; font-size: inherit; font-weight: bold; opacity: 0.55;
     }
   </style>
 </head>
@@ -164,7 +162,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v3.8</div>
+  <div id="version">v4.0</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -297,7 +295,7 @@
   let gameMode = 'solo';
   let conn2 = null;
   let tiltX2 = 0, tiltY2 = 0;
-  let planeX2 = 3, planeY2 = 0;
+  let planeX2 = 6, planeY2 = 0;
   let score2 = 0;
   let calibrated1 = false, calibrated2 = false;
   let connectedCount = 0;
@@ -353,7 +351,8 @@
           document.getElementById('label1').style.display = 'block';
           document.getElementById('score-box2').style.display = 'flex';
           airplane2.visible = true;
-          airplane2.position.x = 3;
+          planeX = -6; airplane.position.x = -6;
+          planeX2 = 6;  airplane2.position.x = 6;
           updateSplitLayout();
         }
       }
@@ -484,6 +483,24 @@
         camera2.position.x += (planeX2     - camera2.position.x) * 4 * dt;
         camera2.position.y += (planeY2 + 5 - camera2.position.y) * 4 * dt;
         camera2.lookAt(planeX2, planeY2, -8);
+
+        // Plane-plane separation
+        const sepX = planeX2 - planeX;
+        const sepY = planeY2 - planeY;
+        const dist = Math.sqrt(sepX * sepX + sepY * sepY);
+        const MIN_SEP = 3.5;
+        if (dist < MIN_SEP && dist > 0.001) {
+          const push = (MIN_SEP - dist) * 0.5;
+          const nx = sepX / dist, ny = sepY / dist;
+          planeX  -= nx * push; planeY  -= ny * push;
+          planeX2 += nx * push; planeY2 += ny * push;
+          planeX  = Math.max(-14, Math.min(14, planeX));
+          planeY  = Math.max(-6,  Math.min(16, planeY));
+          planeX2 = Math.max(-14, Math.min(14, planeX2));
+          planeY2 = Math.max(-6,  Math.min(16, planeY2));
+          airplane.position.x  = planeX;  airplane.position.y  = planeY;
+          airplane2.position.x = planeX2; airplane2.position.y = planeY2;
+        }
       }
 
       // Spawn timer
@@ -726,13 +743,13 @@
 
   function restartGame() {
     score = 0; timeLeft = 60; gameOver = false;
-    planeX = 0; planeY = 0;
+    planeX = gameMode === 'duo' ? -6 : 0; planeY = 0;
     scoreEl.textContent = 0;
-    timerEl.textContent = 90;
+    timerEl.textContent = 60;
     timerEl.parentElement.style.color = '#ffffff';
     startPropSound();
     if (gameMode === 'duo') {
-      score2 = 0; planeX2 = 3; planeY2 = 0;
+      score2 = 0; planeX2 = 6; planeY2 = 0;
       scoreEl2.textContent = 0;
       document.getElementById('end-score').style.display = '';
       document.getElementById('end-sub').style.display = '';
