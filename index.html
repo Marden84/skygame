@@ -165,7 +165,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v4.2</div>
+  <div id="version">v4.3</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -229,6 +229,8 @@
   scene.add(new THREE.Mesh(skyGeo, skyMat));
 
   // ── AIRPLANE ───────────────────────────────────────────────────────────────
+  const PLANE_TEXTURES = ['Plane_Blau.png', 'Plane_Gruen.png'];
+
   let propeller = null, propeller2 = null;
   const airplane  = new THREE.Group();
   const airplane2 = new THREE.Group();
@@ -236,13 +238,38 @@
   scene.add(airplane);
   scene.add(airplane2);
 
-  new GLTFLoader().load('Plane_blau.glb', gltf => {
+  let glbReady = false, pendingTexMode = null;
+  const texLoader = new THREE.TextureLoader();
+
+  function applyTexture(group, name) {
+    texLoader.load(name, tex => {
+      tex.flipY = false;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      group.traverse(child => {
+        if (child.isMesh) {
+          child.material = child.material.clone();
+          child.material.map = tex;
+          child.material.needsUpdate = true;
+        }
+      });
+    });
+  }
+
+  function assignTextures(mode) {
+    const shuffled = [...PLANE_TEXTURES].sort(() => Math.random() - 0.5);
+    applyTexture(airplane,  shuffled[0]);
+    if (mode === 'duo') applyTexture(airplane2, shuffled[1 % shuffled.length]);
+  }
+
+  new GLTFLoader().load('Plane.glb', gltf => {
     const model = gltf.scene;
     propeller = model.getObjectByName('Propeller');
     airplane.add(model);
     const model2 = gltf.scene.clone(true);
     propeller2 = model2.getObjectByName('Propeller');
     airplane2.add(model2);
+    glbReady = true;
+    if (pendingTexMode !== null) assignTextures(pendingTexMode);
   }, undefined, err => console.error('GLB Ladefehler:', err));
 
   // ── CLOUDS & COINS ─────────────────────────────────────────────────────────
@@ -347,6 +374,7 @@
     c.on('data', d => {
       if (d.type === 'gameMode') {
         gameMode = d.value;
+        if (glbReady) assignTextures(d.value); else pendingTexMode = d.value;
         if (d.value === 'solo') {
           document.getElementById('overlay').style.display = 'none';
         } else if (d.value === 'duo') {
@@ -747,6 +775,7 @@
   function restartGame() {
     score = 0; timeLeft = 60; gameOver = false;
     planeX = gameMode === 'duo' ? -6 : 0; planeY = 0;
+    assignTextures(gameMode);
     scoreEl.textContent = 0;
     timerEl.textContent = 60;
     timerEl.parentElement.style.color = '#ffffff';
