@@ -165,7 +165,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v4.4</div>
+  <div id="version">v4.5</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -277,7 +277,15 @@
 
   // ── CLOUDS & COINS ─────────────────────────────────────────────────────────
   const clouds = [], coins = [];
-  let coinTemplate = null;
+  let cloudTemplates = [], coinTemplate = null;
+
+  new GLTFLoader().load('Cloud.glb', gltf => {
+    gltf.scene.traverse(obj => {
+      if (obj.name.startsWith('Cloud_')) cloudTemplates.push(obj);
+    });
+    if (!cloudTemplates.length) cloudTemplates = [gltf.scene];
+    for (let i = 0; i < 22; i++) spawnCloud(-20 - i * 9);
+  }, undefined, err => console.error('Cloud GLB Ladefehler:', err));
 
   new GLTFLoader().load('Coin.glb', gltf => {
     coinTemplate = gltf.scene;
@@ -285,18 +293,16 @@
   }, undefined, err => console.error('Coin GLB Ladefehler:', err));
 
   function spawnCloud(z) {
-    const g   = new THREE.Group();
-    const mat = new THREE.MeshPhongMaterial({ color: 0xfafafa, transparent: true, opacity: 0.9 });
-    for (let i = 0; i < 5 + Math.floor(Math.random() * 5); i++) {
-      const r    = 1.4 + Math.random() * 2.6;
-      const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 6), mat.clone());
-      puff.position.set((Math.random() - .5) * 7, (Math.random() - .5) * 2.5, (Math.random() - .5) * 4);
-      g.add(puff);
-    }
-    g.position.set((Math.random() - .5) * 54, -2 + Math.random() * 14, z);
-    g.userData.speed = 0.55 + Math.random() * 0.15;
-    scene.add(g);
-    clouds.push(g);
+    if (!cloudTemplates.length) return;
+    const template = cloudTemplates[Math.floor(Math.random() * cloudTemplates.length)];
+    const cloud = template.clone(true);
+    const scale = 0.7 + Math.random() * 0.8;
+    cloud.scale.setScalar(scale);
+    cloud.rotation.y = Math.random() * Math.PI * 2;
+    cloud.position.set((Math.random() - .5) * 54, -2 + Math.random() * 14, z);
+    cloud.userData.speed = 0.55 + Math.random() * 0.15;
+    scene.add(cloud);
+    clouds.push(cloud);
   }
 
   function spawnCoin(z) {
@@ -309,10 +315,7 @@
     scene.add(coin);
     coins.push(coin);
   }
-
-  // Pre-populate scene
-  for (let i = 0; i < 22; i++) spawnCloud(-20 - i * 9);
-  // Coins werden im Coin.glb-Loader-Callback gespawnt (nach Template-Load)
+  // Clouds & Coins werden in den GLB-Loader-Callbacks gespawnt
 
   // ── GAME STATE ─────────────────────────────────────────────────────────────
   let score = 0, gameRunning = false, gameOver = false;
