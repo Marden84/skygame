@@ -165,7 +165,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v4.6</div>
+  <div id="version">v4.7</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -173,7 +173,7 @@
   </div>
 
   <div id="lightning-flash"></div>
-  <div id="hit-label">⚡ −10</div>
+  <div id="hit-label">⚡ −5</div>
 
   <script type="importmap">
   {
@@ -290,6 +290,10 @@
           transparent: true,
           opacity: 0.88,
           depthWrite: false,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
         });
       }
     });
@@ -593,7 +597,7 @@
           const dy = bolt.position.y - planeY;
           if (dx < 4.5 && dy > -2 && dy < Math.abs(bolt.userData.dropY) + 2) {
             bolt.userData.hit = true;
-            score = Math.max(0, score - 10);
+            score = Math.max(0, score - 5);
             scoreEl.textContent = score;
             if (conn && conn.open) conn.send({ type: 'score', value: score });
             const flash    = document.getElementById('lightning-flash');
@@ -608,7 +612,7 @@
           const dy2 = bolt.position.y - planeY2;
           if (dx2 < 4.5 && dy2 > -2 && dy2 < Math.abs(bolt.userData.dropY) + 2) {
             bolt.userData.hit2 = true;
-            score2 = Math.max(0, score2 - 10);
+            score2 = Math.max(0, score2 - 5);
             scoreEl2.textContent = score2;
             if (conn2 && conn2.open) conn2.send({ type: 'score', value: score2 });
             document.getElementById('lightning-flash').style.opacity = '1';
