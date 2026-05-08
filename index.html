@@ -165,7 +165,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v4.3</div>
+  <div id="version">v4.4</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -249,10 +249,13 @@
         if (child.isMesh) {
           child.material = child.material.clone();
           child.material.map = tex;
+          child.material.color.set(0xffffff);
+          child.material.metalness = 0.0;
+          child.material.roughness = 0.75;
           child.material.needsUpdate = true;
         }
       });
-    });
+    }, undefined, err => console.warn('Textur Ladefehler:', name, err));
   }
 
   function assignTextures(mode) {
