@@ -119,6 +119,11 @@
       font-size: 1.9rem; font-weight: bold;
       color: #ff6644; text-shadow: 0 0 12px rgba(255,80,40,0.6);
       margin-left: 18px;
+      flex-direction: column; align-items: center;
+    }
+    .player-label {
+      display: none; font-size: 0.6rem; font-weight: normal;
+      letter-spacing: 2px; opacity: 0.7; margin-bottom: 2px;
     }
   </style>
 </head>
@@ -132,9 +137,15 @@
   </div>
 
   <div id="hud" style="display:none">
-    <div id="score-box">✈️ <span id="score-val">0</span></div>
-    <div id="timer-box">⏱ <span id="timer-val">90</span>s</div>
-    <div id="score-box2" style="display:none">✈️ <span id="score-val2">0</span></div>
+    <div id="score-box">
+      <div class="player-label" id="label1">SPIELER 1</div>
+      ✈️ <span id="score-val">0</span>
+    </div>
+    <div id="timer-box">⏱ <span id="timer-val">60</span>s</div>
+    <div id="score-box2" style="display:none">
+      <div class="player-label" id="label2" style="display:block">SPIELER 2</div>
+      ✈️ <span id="score-val2">0</span>
+    </div>
   </div>
 
   <div id="split-line" style="display:none; pointer-events:none; z-index:5;"></div>
@@ -153,7 +164,7 @@
     <button id="btn-restart">🔄 Nochmal spielen</button>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v3.7</div>
+  <div id="version">v3.8</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -274,7 +285,7 @@
 
   // ── GAME STATE ─────────────────────────────────────────────────────────────
   let score = 0, gameRunning = false, gameOver = false;
-  let timeLeft = 90;
+  let timeLeft = 60;
   let tiltX = 0, tiltY = 0;
   let planeX = 0, planeY = 0;
   let spawnTimer = 0;
@@ -339,6 +350,7 @@
           document.getElementById('overlay').style.display = 'none';
         } else if (d.value === 'duo') {
           document.querySelector('#overlay .sub').textContent = 'Spieler 2: Scanne zum Beitreten';
+          document.getElementById('label1').style.display = 'block';
           document.getElementById('score-box2').style.display = 'flex';
           airplane2.visible = true;
           airplane2.position.x = 3;
@@ -713,7 +725,7 @@
   }
 
   function restartGame() {
-    score = 0; timeLeft = 90; gameOver = false;
+    score = 0; timeLeft = 60; gameOver = false;
     planeX = 0; planeY = 0;
     scoreEl.textContent = 0;
     timerEl.textContent = 90;
