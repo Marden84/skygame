@@ -441,6 +441,7 @@
 
     // ── Control mode selection (Neigung / Joystick) ─────────────────────────
     function selectMode(mode) {
+      initAudio();
       controlMode = mode;
       document.getElementById('mode-select').style.display = 'none';
 
