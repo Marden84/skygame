@@ -242,6 +242,7 @@
   const PLANE_TEXTURES = ['Plane_Blau.png', 'Plane_Gruen.png'];
 
   let propeller = null, propeller2 = null;
+  let planeModel1 = null, planeModel2 = null;
   const airplane  = new THREE.Group();
   const airplane2 = new THREE.Group();
   airplane2.visible = false;
@@ -270,17 +271,17 @@
 
   function assignTextures(mode) {
     const shuffled = [...PLANE_TEXTURES].sort(() => Math.random() - 0.5);
-    applyTexture(airplane,  shuffled[0]);
-    if (mode === 'duo') applyTexture(airplane2, shuffled[1 % shuffled.length]);
+    if (planeModel1) applyTexture(planeModel1, shuffled[0]);
+    if (mode === 'duo' && planeModel2) applyTexture(planeModel2, shuffled[1 % shuffled.length]);
   }
 
   new GLTFLoader().load('Plane.glb', gltf => {
-    const model = gltf.scene;
-    propeller = model.getObjectByName('Propeller');
-    airplane.add(model);
-    const model2 = gltf.scene.clone(true);
-    propeller2 = model2.getObjectByName('Propeller');
-    airplane2.add(model2);
+    planeModel1 = gltf.scene;
+    propeller = planeModel1.getObjectByName('Propeller');
+    airplane.add(planeModel1);
+    planeModel2 = gltf.scene.clone(true);
+    propeller2 = planeModel2.getObjectByName('Propeller');
+    airplane2.add(planeModel2);
     glbReady = true;
     if (pendingTexMode !== null) assignTextures(pendingTexMode);
   }, undefined, err => console.error('GLB Ladefehler:', err));
@@ -288,6 +289,8 @@
   // ── PILOT ──────────────────────────────────────────────────────────────────
   let pilotMixer1 = null, pilotMixer2 = null;
   let waveAction1 = null, waveAction2 = null;
+  let waveTimer1 = 5 + Math.random() * 8;
+  let waveTimer2 = 5 + Math.random() * 8;
 
   new GLTFLoader().load('Pilot.glb', gltf => {
     const clip = gltf.animations[0];
@@ -299,6 +302,7 @@
       waveAction1 = pilotMixer1.clipAction(clip);
       waveAction1.setLoop(THREE.LoopOnce);
       waveAction1.clampWhenFinished = true;
+      waveAction1.timeScale = 2;
     }
 
     const pilot2 = gltf.scene.clone(true);
@@ -308,6 +312,7 @@
       waveAction2 = pilotMixer2.clipAction(clip);
       waveAction2.setLoop(THREE.LoopOnce);
       waveAction2.clampWhenFinished = true;
+      waveAction2.timeScale = 2;
     }
   }, undefined, err => console.error('Pilot GLB Ladefehler:', err));
 
@@ -531,6 +536,21 @@
     if (pilotMixer2) pilotMixer2.update(dt);
 
     if (gameRunning) {
+      waveTimer1 -= dt;
+      if (waveTimer1 <= 0) {
+        if (waveAction1) waveAction1.reset().play();
+        waveTimer1 = 6 + Math.random() * 10;
+      }
+      if (gameMode === 'duo') {
+        waveTimer2 -= dt;
+        if (waveTimer2 <= 0) {
+          if (waveAction2) waveAction2.reset().play();
+          waveTimer2 = 6 + Math.random() * 10;
+        }
+      }
+    }
+
+    if (gameRunning) {
       const velX =  (tiltX / 30) * 13;
       const velY = -(tiltY / 30) * 13;
 
@@ -694,7 +714,6 @@
         const dz = c.position.z - airplane.position.z;
         if (Math.sqrt(dx*dx + dy*dy + dz*dz) < 4.0) {
           score++; scoreEl.textContent = score;
-          if (waveAction1) waveAction1.reset().play();
           if (conn && conn.open) { conn.send({ type: 'score', value: score }); conn.send({ type: 'sound', name: 'bling' }); }
           scene.remove(c); coins.splice(i, 1);
           removed = true;
@@ -705,7 +724,6 @@
           const dz2 = c.position.z - airplane2.position.z;
           if (Math.sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2) < 4.0) {
             score2++; scoreEl2.textContent = score2;
-            if (waveAction2) waveAction2.reset().play();
             if (conn2 && conn2.open) { conn2.send({ type: 'score', value: score2 }); conn2.send({ type: 'sound', name: 'bling' }); }
             scene.remove(c); coins.splice(i, 1);
             removed = true;
