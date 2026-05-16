@@ -165,6 +165,29 @@
       border-color: rgba(255,215,0,0.5);
       box-shadow: 0 0 24px rgba(255,215,0,0.15);
     }
+
+    #gameover-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(8, 6, 35, 0.96);
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.6rem;
+      z-index: 80;
+      text-align: center;
+      padding: 2rem;
+    }
+    #gameover-overlay h2 { font-size: 2rem; letter-spacing: 2px; }
+    #gameover-final-score { font-size: 4rem; font-weight: bold; color: #ffd700; text-shadow: 0 0 24px rgba(255,215,0,0.55); }
+    #btn-restart-mobile {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white; border: none;
+      padding: 20px 52px; border-radius: 50px;
+      font-size: 1.2rem; cursor: pointer;
+      box-shadow: 0 4px 22px rgba(102,126,234,0.45);
+      transition: transform .1s;
+    }
+    #btn-restart-mobile:active { transform: scale(0.95); }
   </style>
 </head>
 <body>
@@ -200,6 +223,15 @@
     <p>Steuerungsart wählen</p>
     <button class="btn-mode" onclick="selectMode('tilt')"><img src="Plane_Icon.png" style="height:2em; vertical-align:middle; margin-right:0.3em;">Neigung</button>
     <button class="btn-mode joystick" onclick="selectMode('joystick')">🕹️ Joystick</button>
+  </div>
+
+  <div id="gameover-overlay">
+    <h2>⏱ Zeit abgelaufen!</h2>
+    <div id="gameover-final-score" style="display:flex; align-items:center; gap:0.4em;">
+      <img src="Coin_JLS.png" style="height:1em; vertical-align:middle;">
+      <span id="gameover-score-val">0</span>
+    </div>
+    <button id="btn-restart-mobile" onclick="sendRestart()">🔄 Nochmal spielen</button>
   </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -268,6 +300,14 @@
           if (d.name === 'lightning') playLightning();
           if (d.name === 'propStart') startPropSound();
           if (d.name === 'propStop')  stopPropSound();
+        }
+        if (d.type === 'gameover') {
+          document.getElementById('gameover-score-val').textContent = d.score;
+          document.getElementById('gameover-overlay').style.display = 'flex';
+        }
+        if (d.type === 'restarted') {
+          document.getElementById('gameover-overlay').style.display = 'none';
+          document.getElementById('sc').textContent = 0;
         }
       });
 
@@ -429,6 +469,11 @@
       if (!propSource) return;
       try { propSource.stop(); } catch(e) {}
       propSource = null;
+    }
+
+    // ── Restart ─────────────────────────────────────────────────────────────
+    function sendRestart() {
+      if (conn && conn.open) conn.send({ type: 'restart' });
     }
 
     // ── Game mode selection (Solo / Zu zweit) ───────────────────────────────
