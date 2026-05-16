@@ -285,6 +285,32 @@
     if (pendingTexMode !== null) assignTextures(pendingTexMode);
   }, undefined, err => console.error('GLB Ladefehler:', err));
 
+  // ── PILOT ──────────────────────────────────────────────────────────────────
+  let pilotMixer1 = null, pilotMixer2 = null;
+  let waveAction1 = null, waveAction2 = null;
+
+  new GLTFLoader().load('Pilot.glb', gltf => {
+    const clip = gltf.animations[0];
+
+    const pilot1 = gltf.scene;
+    airplane.add(pilot1);
+    if (clip) {
+      pilotMixer1 = new THREE.AnimationMixer(pilot1);
+      waveAction1 = pilotMixer1.clipAction(clip);
+      waveAction1.setLoop(THREE.LoopOnce);
+      waveAction1.clampWhenFinished = true;
+    }
+
+    const pilot2 = gltf.scene.clone(true);
+    airplane2.add(pilot2);
+    if (clip) {
+      pilotMixer2 = new THREE.AnimationMixer(pilot2);
+      waveAction2 = pilotMixer2.clipAction(clip);
+      waveAction2.setLoop(THREE.LoopOnce);
+      waveAction2.clampWhenFinished = true;
+    }
+  }, undefined, err => console.error('Pilot GLB Ladefehler:', err));
+
   // ── CLOUDS & COINS ─────────────────────────────────────────────────────────
   const clouds = [], coins = [];
   let cloudTemplates = [], coinTemplate = null;
@@ -501,6 +527,9 @@
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
 
+    if (pilotMixer1) pilotMixer1.update(dt);
+    if (pilotMixer2) pilotMixer2.update(dt);
+
     if (gameRunning) {
       const velX =  (tiltX / 30) * 13;
       const velY = -(tiltY / 30) * 13;
@@ -665,6 +694,7 @@
         const dz = c.position.z - airplane.position.z;
         if (Math.sqrt(dx*dx + dy*dy + dz*dz) < 4.0) {
           score++; scoreEl.textContent = score;
+          if (waveAction1) waveAction1.reset().play();
           if (conn && conn.open) { conn.send({ type: 'score', value: score }); conn.send({ type: 'sound', name: 'bling' }); }
           scene.remove(c); coins.splice(i, 1);
           removed = true;
@@ -675,6 +705,7 @@
           const dz2 = c.position.z - airplane2.position.z;
           if (Math.sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2) < 4.0) {
             score2++; scoreEl2.textContent = score2;
+            if (waveAction2) waveAction2.reset().play();
             if (conn2 && conn2.open) { conn2.send({ type: 'score', value: score2 }); conn2.send({ type: 'sound', name: 'bling' }); }
             scene.remove(c); coins.splice(i, 1);
             removed = true;
