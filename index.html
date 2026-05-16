@@ -174,7 +174,7 @@
     </div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v5.9</div>
+  <div id="version">v6.0</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -291,10 +291,23 @@
   let waveTimer1 = 5 + Math.random() * 8;
   let waveTimer2 = 5 + Math.random() * 8;
 
+  function fixPilotMaterials(obj) {
+    obj.traverse(child => {
+      if (!child.isMesh) return;
+      child.material = child.material.clone();
+      child.material.metalness = 0;
+      child.material.roughness = 0.8;
+      child.material.emissive = new THREE.Color(0x222222);
+      child.material.emissiveIntensity = 0.4;
+      child.material.needsUpdate = true;
+    });
+  }
+
   new GLTFLoader().load('Pilot.glb', gltf => {
     const clip = gltf.animations[0];
 
     const pilot1 = gltf.scene;
+    fixPilotMaterials(pilot1);
     airplane.add(pilot1);
     if (clip) {
       pilotMixer1 = new THREE.AnimationMixer(pilot1);
@@ -305,6 +318,7 @@
     }
 
     const pilot2 = gltf.scene.clone(true);
+    fixPilotMaterials(pilot2);
     airplane2.add(pilot2);
     if (clip) {
       pilotMixer2 = new THREE.AnimationMixer(pilot2);
