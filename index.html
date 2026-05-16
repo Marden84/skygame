@@ -174,7 +174,7 @@
     </div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v5.8</div>
+  <div id="version">v5.9</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -464,6 +464,7 @@
         else       { tiltX2 = gx; tiltY2 = gy; }
       }
       if (d.type === 'restart') onRestartMessage();
+      if (d.type === 'quit') location.reload();
     });
     c.on('close', () => {
       gameRunning = false;

@@ -188,6 +188,17 @@
       transition: transform .1s;
     }
     #btn-restart-mobile:active { transform: scale(0.95); }
+
+    #btn-quit {
+      display: none;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 10px 28px; border-radius: 50px;
+      font-size: 0.9rem; cursor: pointer;
+      transition: transform .1s;
+    }
+    #btn-quit:active { transform: scale(0.95); }
   </style>
 </head>
 <body>
@@ -203,6 +214,7 @@
 
   <p id="hint">Neige dein Handy, um das Flugzeug zu steuern</p>
   <div id="score-display" style="display:flex; align-items:center; gap:0.3em;"><img src="Coin_JLS.png" style="height:1em; vertical-align:middle;"> <span id="sc">0</span></div>
+  <button id="btn-quit" onclick="sendQuit()">✕ Abbrechen</button>
 
   <div id="calib-overlay">
     <p style="font-size:1.1rem; opacity:0.85; max-width:80vw; line-height:1.6;">
@@ -232,6 +244,7 @@
       <span id="gameover-score-val">0</span>
     </div>
     <button id="btn-restart-mobile" onclick="sendRestart()">🔄 Nochmal spielen</button>
+    <button style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.15); padding:10px 28px; border-radius:50px; font-size:0.9rem; cursor:pointer; margin-top:0.4rem;" onclick="sendQuit()">✕ Abbrechen</button>
   </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -298,7 +311,7 @@
         if (d.type === 'sound') {
           if (d.name === 'bling')     playBling();
           if (d.name === 'lightning') playLightning();
-          if (d.name === 'propStart') startPropSound();
+          if (d.name === 'propStart') { startPropSound(); document.getElementById('btn-quit').style.display = 'block'; }
           if (d.name === 'propStop')  stopPropSound();
         }
         if (d.type === 'gameover') {
@@ -471,9 +484,14 @@
       propSource = null;
     }
 
-    // ── Restart ─────────────────────────────────────────────────────────────
+    // ── Restart / Quit ───────────────────────────────────────────────────────
     function sendRestart() {
       if (conn && conn.open) conn.send({ type: 'restart' });
+    }
+
+    function sendQuit() {
+      if (conn && conn.open) conn.send({ type: 'quit' });
+      window.location.href = window.location.pathname;
     }
 
     // ── Game mode selection (Solo / Zu zweit) ───────────────────────────────
