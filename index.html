@@ -64,6 +64,22 @@
     }
     #btn-restart:active { transform: scale(0.95); }
 
+    #countdown-overlay {
+      display: none; position: fixed; inset: 0;
+      align-items: center; justify-content: center;
+      z-index: 95; pointer-events: none;
+    }
+    #countdown-number {
+      font-size: 14rem; font-weight: bold; color: white;
+      text-shadow: 0 0 80px rgba(255,255,255,0.6), 0 0 20px rgba(255,255,255,0.9);
+      line-height: 1;
+      animation: countdown-pop 0.35s ease-out;
+    }
+    @keyframes countdown-pop {
+      from { transform: scale(1.6); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
     #highscore-section { width:100%; max-width:440px; margin-top:0.8rem; text-align:left; }
     #highscore-section h3 { font-size:1rem; opacity:0.75; margin-bottom:0.5rem; text-align:center; letter-spacing:1px; }
     #hs-entries { list-style:none; max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; padding:0; }
@@ -160,6 +176,8 @@
     </div>
   </div>
 
+  <div id="countdown-overlay"><div id="countdown-number"></div></div>
+
   <div id="split-line" style="display:none; pointer-events:none; z-index:5;"></div>
 
   <div id="end-overlay">
@@ -192,7 +210,7 @@
     </div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v6.3</div>
+  <div id="version">v6.4</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -482,11 +500,11 @@
         const ready = gameMode === 'solo' ? calibrated1 : (calibrated1 && calibrated2);
         if (ready) {
           calibWait.style.display = 'none';
-          gameRunning = true;
           pill.textContent = '🎮 Verbunden';
           pill.className   = 'pill-ok';
           if (conn  && conn.open)  conn.send({ type: 'sound', name: 'propStart' });
           if (conn2 && conn2.open) conn2.send({ type: 'sound', name: 'propStart' });
+          startCountdown(() => { gameRunning = true; });
         }
       }
       if (d.type === 'tilt') {
@@ -830,6 +848,27 @@
 
   let autoResetTimer = null;
 
+  function startCountdown(callback) {
+    const overlay = document.getElementById('countdown-overlay');
+    const numEl   = document.getElementById('countdown-number');
+    const steps   = ['3', '2', '1', 'Los!'];
+    let i = 0;
+    overlay.style.display = 'flex';
+    numEl.textContent = steps[0];
+    numEl.style.animation = 'none'; void numEl.offsetWidth; numEl.style.animation = '';
+    const iv = setInterval(() => {
+      i++;
+      if (i < steps.length) {
+        numEl.textContent = steps[i];
+        numEl.style.animation = 'none'; void numEl.offsetWidth; numEl.style.animation = '';
+      } else {
+        clearInterval(iv);
+        overlay.style.display = 'none';
+        callback();
+      }
+    }, 1000);
+  }
+
   function endGame() {
     gameRunning = false;
     gameOver = true;
@@ -883,7 +922,7 @@
     for (let i = 0; i < 14; i++) spawnCoin(-18 - i * 14);
 
     document.getElementById('end-overlay').style.display = 'none';
-    gameRunning = true;
+    startCountdown(() => { gameRunning = true; });
   }
 
   function onRestartMessage() {
