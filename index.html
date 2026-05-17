@@ -142,6 +142,10 @@
     <p class="sub">Scanne den QR-Code mit deinem Handy</p>
     <div id="qrcode"></div>
     <div id="conn-info">Verbindungs-ID wird geladen…</div>
+    <div id="highscore-section-start" style="display:none; width:100%; max-width:380px; margin-top:1.2rem;">
+      <h3 style="font-size:1rem; opacity:0.75; margin-bottom:0.5rem; text-align:center; letter-spacing:1px;">🏆 Bestenliste</h3>
+      <ol id="hs-entries-start"></ol>
+    </div>
   </div>
 
   <div id="hud" style="display:none">
@@ -188,7 +192,7 @@
     </div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v6.2</div>
+  <div id="version">v6.3</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -496,7 +500,7 @@
         renderHighscores();
       }
       if (d.type === 'restart') onRestartMessage();
-      if (d.type === 'quit') location.reload();
+      if (d.type === 'quit') { clearTimeout(autoResetTimer); location.reload(); }
     });
     c.on('close', () => {
       gameRunning = false;
@@ -808,8 +812,7 @@
   }
   function renderHighscores() {
     const list = loadHighscores();
-    const ol = document.getElementById('hs-entries');
-    ol.innerHTML = list.map((e, i) =>
+    const html = list.map((e, i) =>
       `<li class="${i === 0 ? 'hs-gold' : ''}">
          <span class="hs-rank">#${i + 1}</span>
          <span class="hs-name">${e.name}</span>
@@ -817,8 +820,15 @@
          <span class="hs-meta">${e.mode} · ${e.date}</span>
        </li>`
     ).join('');
+    document.getElementById('hs-entries').innerHTML = html;
+    document.getElementById('hs-entries-start').innerHTML = html;
     document.getElementById('highscore-section').style.display = list.length ? 'block' : 'none';
+    document.getElementById('highscore-section-start').style.display = list.length ? 'block' : 'none';
   }
+
+  renderHighscores();
+
+  let autoResetTimer = null;
 
   function endGame() {
     gameRunning = false;
@@ -841,6 +851,7 @@
     }
     document.getElementById('end-overlay').style.display = 'flex';
     renderHighscores();
+    autoResetTimer = setTimeout(() => location.reload(), 60000);
   }
 
   function restartGame() {
@@ -876,6 +887,7 @@
   }
 
   function onRestartMessage() {
+    clearTimeout(autoResetTimer);
     restartGame();
     if (conn  && conn.open)  conn.send({ type: 'restarted' });
     if (conn2 && conn2.open) conn2.send({ type: 'restarted' });
