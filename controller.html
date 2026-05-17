@@ -199,6 +199,27 @@
       transition: transform .1s;
     }
     #btn-quit:active { transform: scale(0.95); }
+
+    #name-input-section { display:flex; flex-direction:column; align-items:center; gap:0.8rem; width:100%; max-width:280px; }
+    #name-input-section p { font-size:0.9rem; opacity:0.7; margin:0; }
+    #player-name-input {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 12px;
+      color: white; font-size: 1.15rem;
+      padding: 12px 18px; width: 100%;
+      text-align: center; outline: none;
+    }
+    #player-name-input::placeholder { color: rgba(255,255,255,0.35); }
+    #btn-save-score {
+      background: linear-gradient(135deg, #43e97b, #38f9d7);
+      color: #1a1a1a; border: none;
+      padding: 14px 40px; border-radius: 50px;
+      font-size: 1.1rem; cursor: pointer;
+      box-shadow: 0 4px 18px rgba(67,233,123,0.35);
+      transition: transform .1s;
+    }
+    #btn-save-score:active { transform: scale(0.95); }
   </style>
 </head>
 <body>
@@ -243,8 +264,13 @@
       <img src="Coin_JLS.png" style="height:1em; vertical-align:middle;">
       <span id="gameover-score-val">0</span>
     </div>
-    <button id="btn-restart-mobile" onclick="sendRestart()">🔄 Nochmal spielen</button>
-    <button style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.15); padding:10px 28px; border-radius:50px; font-size:0.9rem; cursor:pointer; margin-top:0.4rem;" onclick="sendQuit()">✕ Abbrechen</button>
+    <div id="name-input-section">
+      <p>Dein Name für die Bestenliste</p>
+      <input id="player-name-input" type="text" maxlength="16" placeholder="Name…">
+      <button id="btn-save-score" onclick="saveScore()">💾 Speichern</button>
+    </div>
+    <button id="btn-restart-mobile" style="display:none;" onclick="sendRestart()">🔄 Nochmal spielen</button>
+    <button id="btn-quit-gameover" style="display:none; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.15); padding:10px 28px; border-radius:50px; font-size:0.9rem; cursor:pointer;" onclick="sendQuit()">✕ Abbrechen</button>
   </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -485,8 +511,20 @@
     }
 
     // ── Restart / Quit ───────────────────────────────────────────────────────
+    function saveScore() {
+      const name = document.getElementById('player-name-input').value.trim() || 'Pilot';
+      if (conn && conn.open) conn.send({ type: 'savescore', name });
+      document.getElementById('name-input-section').style.display = 'none';
+      document.getElementById('btn-restart-mobile').style.display = 'block';
+      document.getElementById('btn-quit-gameover').style.display = 'block';
+    }
+
     function sendRestart() {
       if (conn && conn.open) conn.send({ type: 'restart' });
+      document.getElementById('name-input-section').style.display = 'flex';
+      document.getElementById('player-name-input').value = '';
+      document.getElementById('btn-restart-mobile').style.display = 'none';
+      document.getElementById('btn-quit-gameover').style.display = 'none';
     }
 
     function sendQuit() {

@@ -64,6 +64,16 @@
     }
     #btn-restart:active { transform: scale(0.95); }
 
+    #highscore-section { width:100%; max-width:440px; margin-top:0.8rem; text-align:left; }
+    #highscore-section h3 { font-size:1rem; opacity:0.75; margin-bottom:0.5rem; text-align:center; letter-spacing:1px; }
+    #hs-entries { list-style:none; max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; padding:0; }
+    #hs-entries li { display:flex; align-items:center; gap:0.6rem; font-size:0.88rem; padding:6px 12px; border-radius:8px; background:rgba(255,255,255,0.06); }
+    #hs-entries li.hs-gold { background:rgba(255,215,0,0.14); color:#ffd700; }
+    .hs-rank { opacity:0.45; min-width:2.2ch; font-size:0.8rem; }
+    .hs-name { flex:1; font-weight:bold; }
+    .hs-score { font-weight:bold; }
+    .hs-meta { font-size:0.72rem; opacity:0.4; }
+
     #status-pill {
       position: fixed; bottom: 22px; right: 22px;
       background: rgba(0,0,0,0.5); color: white;
@@ -172,9 +182,13 @@
         </div>
       </div>
     </div>
+    <div id="highscore-section" style="display:none;">
+      <h3>🏆 Bestenliste</h3>
+      <ol id="hs-entries"></ol>
+    </div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v6.0</div>
+  <div id="version">v6.1</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -477,6 +491,10 @@
         if (isP1) { tiltX = gx; tiltY = gy; }
         else       { tiltX2 = gx; tiltY2 = gy; }
       }
+      if (d.type === 'savescore') {
+        saveHighscore(d.name, isP1 ? score : score2, gameMode);
+        renderHighscores();
+      }
       if (d.type === 'restart') onRestartMessage();
       if (d.type === 'quit') location.reload();
     });
@@ -778,6 +796,30 @@
     }
   }
 
+  function loadHighscores() {
+    try { return JSON.parse(localStorage.getItem('skygame_highscores')) || []; }
+    catch { return []; }
+  }
+  function saveHighscore(name, hsScore, mode) {
+    const list = loadHighscores();
+    list.push({ name, score: hsScore, mode, date: new Date().toLocaleDateString('de-CH') });
+    list.sort((a, b) => b.score - a.score);
+    localStorage.setItem('skygame_highscores', JSON.stringify(list.slice(0, 10)));
+  }
+  function renderHighscores() {
+    const list = loadHighscores();
+    const ol = document.getElementById('hs-entries');
+    ol.innerHTML = list.map((e, i) =>
+      `<li class="${i === 0 ? 'hs-gold' : ''}">
+         <span class="hs-rank">#${i + 1}</span>
+         <span class="hs-name">${e.name}</span>
+         <span class="hs-score">${e.score}</span>
+         <span class="hs-meta">${e.mode} · ${e.date}</span>
+       </li>`
+    ).join('');
+    document.getElementById('highscore-section').style.display = list.length ? 'block' : 'none';
+  }
+
   function endGame() {
     gameRunning = false;
     gameOver = true;
@@ -798,6 +840,7 @@
       if (conn && conn.open) conn.send({ type: 'gameover', score });
     }
     document.getElementById('end-overlay').style.display = 'flex';
+    renderHighscores();
   }
 
   function restartGame() {
