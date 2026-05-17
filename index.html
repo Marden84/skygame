@@ -213,7 +213,7 @@
     </div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v6.7</div>
+  <div id="version">v6.6</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -275,32 +275,6 @@
     side: THREE.BackSide
   });
   scene.add(new THREE.Mesh(skyGeo, skyMat));
-
-  // ── BIOMES ─────────────────────────────────────────────────────────────────
-  const BIOMES = [
-    { skyTop:0x1466cc, skyBot:0x8ec8f6, fog:0x9dcef5, fogD:0.007, mtn:0x2a3020 },
-    { skyTop:0x1a0060, skyBot:0xff5e1a, fog:0xff9966, fogD:0.009, mtn:0x1a0a20 },
-    { skyTop:0x010212, skyBot:0x0a1535, fog:0x0d1520, fogD:0.012, mtn:0x05050f },
-    { skyTop:0x4a0a8a, skyBot:0xff9060, fog:0xffaa88, fogD:0.008, mtn:0x1a0820 },
-  ];
-  let biomeIdx = 0, biomeClock = 0;
-  const BIOME_DURATION = 28, BIOME_FADE = 7;
-  const _sc1 = new THREE.Color(), _sc2 = new THREE.Color();
-
-  // ── MOUNTAINS ──────────────────────────────────────────────────────────────
-  const mountainMat = new THREE.MeshBasicMaterial({ color: 0x2a3020 });
-  const mtns = [];
-  function spawnMountain(z) {
-    const h = 12 + Math.random() * 28;
-    const r = 8  + Math.random() * 22;
-    const geo = new THREE.ConeGeometry(r, h, 4 + Math.floor(Math.random() * 3), 1);
-    const mesh = new THREE.Mesh(geo, mountainMat);
-    mesh.position.set((Math.random() - 0.5) * 90, -32 - h / 2, z);
-    mesh.rotation.y = Math.random() * Math.PI;
-    scene.add(mesh);
-    mtns.push(mesh);
-  }
-  for (let i = 0; i < 35; i++) spawnMountain(-15 - i * 12);
 
   // ── AIRPLANE ───────────────────────────────────────────────────────────────
   const PLANE_TEXTURES = ['Plane_Blau.png', 'Plane_Gruen.png'];
@@ -721,24 +695,6 @@
         if (Math.random() < 0.5) spawnCoin(-185);
       }
 
-      // Biome transitions
-      biomeClock += dt;
-      if (biomeClock > BIOME_DURATION) { biomeClock = 0; biomeIdx = (biomeIdx + 1) % BIOMES.length; }
-      const biomeT = Math.min(biomeClock / BIOME_FADE, 1);
-      const bPrev = BIOMES[(biomeIdx + BIOMES.length - 1) % BIOMES.length];
-      const bCurr = BIOMES[biomeIdx];
-      skyMat.uniforms.topColor.value.lerpColors(_sc1.setHex(bPrev.skyTop), _sc2.setHex(bCurr.skyTop), biomeT);
-      skyMat.uniforms.bottomColor.value.lerpColors(_sc1.setHex(bPrev.skyBot), _sc2.setHex(bCurr.skyBot), biomeT);
-      scene.fog.color.lerpColors(_sc1.setHex(bPrev.fog), _sc2.setHex(bCurr.fog), biomeT);
-      scene.fog.density = bPrev.fogD + (bCurr.fogD - bPrev.fogD) * biomeT;
-      mountainMat.color.lerpColors(_sc1.setHex(bPrev.mtn), _sc2.setHex(bCurr.mtn), biomeT);
-
-      // Move mountains
-      for (let i = mtns.length - 1; i >= 0; i--) {
-        mtns[i].position.z += SPEED * 0.28 * dt;
-        if (mtns[i].position.z > 30) { scene.remove(mtns[i]); mtns.splice(i, 1); spawnMountain(-200); }
-      }
-
       // Countdown timer
       timeLeft -= dt;
       const secsLeft = Math.ceil(timeLeft);
@@ -958,7 +914,6 @@
 
   function restartGame() {
     setPlayerName(1, 'SPIELER 1'); setPlayerName(2, 'SPIELER 2');
-    biomeIdx = 0; biomeClock = 0;
     score = 0; timeLeft = 60; gameOver = false;
     planeX = gameMode === 'duo' ? -6 : 0; planeY = 0;
     assignTextures(gameMode);
