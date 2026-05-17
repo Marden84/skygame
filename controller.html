@@ -518,6 +518,7 @@
     function confirmName() {
       playerName = document.getElementById('player-name-input').value.trim() || 'Pilot';
       document.getElementById('name-input-overlay').style.display = 'none';
+      if (conn && conn.open) conn.send({ type: 'playerName', name: playerName });
       if (pendingPlayerNum === 1) {
         document.getElementById('game-mode-overlay').style.display = 'flex';
       } else {

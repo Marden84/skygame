@@ -19,6 +19,9 @@
     #overlay .sub { font-size: 1.1rem; opacity: 0.75; margin-bottom: 2rem; }
     #qrcode { background: white; padding: 12px; border-radius: 16px; box-shadow: 0 0 50px rgba(255,255,255,0.15); }
     #conn-info { margin-top: 1.2rem; font-size: 0.82rem; opacity: 0.45; letter-spacing: 1px; }
+    #highscore-section-start ol { list-style:none; display:flex; flex-direction:column; gap:3px; padding:0; }
+    #highscore-section-start li { display:flex; align-items:center; gap:0.6rem; font-size:0.82rem; padding:5px 10px; border-radius:7px; background:rgba(255,255,255,0.07); }
+    #highscore-section-start li.hs-gold { background:rgba(255,215,0,0.13); color:#ffd700; }
     #version { position: fixed; bottom: 10px; left: 14px; font-size: 0.75rem; opacity: 0.35; color: white; z-index: 200; letter-spacing: 1px; }
 
     #hud {
@@ -191,13 +194,13 @@
       <div id="end-winner" style="font-size:1.6rem; font-weight:bold;"></div>
       <div style="display:flex; gap:3rem; align-items:flex-end;">
         <div style="display:flex; flex-direction:column; align-items:center; gap:0.3rem;">
-          <span style="font-size:0.85rem; opacity:0.6; letter-spacing:1px;">SPIELER 1</span>
+          <span id="end-label1" style="font-size:0.85rem; opacity:0.6; letter-spacing:1px;">SPIELER 1</span>
           <div style="display:flex; align-items:center; gap:0.3em; font-size:3.5rem; font-weight:bold; color:#ffd700; text-shadow:0 0 24px rgba(255,215,0,0.55);">
             <img src="Coin_JLS.png" style="height:1em;"> <span id="end-score1">0</span>
           </div>
         </div>
         <div style="display:flex; flex-direction:column; align-items:center; gap:0.3rem;">
-          <span style="font-size:0.85rem; opacity:0.6; letter-spacing:1px;">SPIELER 2</span>
+          <span id="end-label2" style="font-size:0.85rem; opacity:0.6; letter-spacing:1px;">SPIELER 2</span>
           <div style="display:flex; align-items:center; gap:0.3em; font-size:3.5rem; font-weight:bold; color:#ffd700; text-shadow:0 0 24px rgba(255,215,0,0.55);">
             <img src="Coin_JLS.png" style="height:1em;"> <span id="end-score2">0</span>
           </div>
@@ -210,7 +213,7 @@
     </div>
   </div>
   <div id="status-pill">Warte auf Controller…</div>
-  <div id="version">v6.4</div>
+  <div id="version">v6.5</div>
 
   <div id="calib-wait">
     <div id="calib-wait-spinner"></div>
@@ -340,25 +343,27 @@
   }
 
   new GLTFLoader().load('Pilot.glb', gltf => {
-    const clip = gltf.animations[0];
-
     const pilot1 = gltf.scene;
     fixPilotMaterials(pilot1);
     airplane.add(pilot1);
-    if (clip) {
+    const clip1 = gltf.animations[0];
+    if (clip1) {
       pilotMixer1 = new THREE.AnimationMixer(pilot1);
-      waveAction1 = pilotMixer1.clipAction(clip);
+      waveAction1 = pilotMixer1.clipAction(clip1);
       waveAction1.setLoop(THREE.LoopOnce);
       waveAction1.clampWhenFinished = true;
       waveAction1.timeScale = 2;
     }
+  }, undefined, err => console.error('Pilot GLB Ladefehler:', err));
 
-    const pilot2 = gltf.scene.clone(true);
+  new GLTFLoader().load('Pilot.glb', gltf => {
+    const pilot2 = gltf.scene;
     fixPilotMaterials(pilot2);
     airplane2.add(pilot2);
-    if (clip) {
+    const clip2 = gltf.animations[0];
+    if (clip2) {
       pilotMixer2 = new THREE.AnimationMixer(pilot2);
-      waveAction2 = pilotMixer2.clipAction(clip);
+      waveAction2 = pilotMixer2.clipAction(clip2);
       waveAction2.setLoop(THREE.LoopOnce);
       waveAction2.clampWhenFinished = true;
       waveAction2.timeScale = 2;
@@ -423,6 +428,19 @@
 
   // ── GAME STATE ─────────────────────────────────────────────────────────────
   let score = 0, gameRunning = false, gameOver = false;
+  let playerName1 = 'SPIELER 1', playerName2 = 'SPIELER 2';
+
+  function setPlayerName(num, name) {
+    if (num === 1) {
+      playerName1 = name;
+      document.getElementById('label1').textContent = name;
+      document.getElementById('end-label1').textContent = name;
+    } else {
+      playerName2 = name;
+      document.getElementById('label2').textContent = name;
+      document.getElementById('end-label2').textContent = name;
+    }
+  }
   let timeLeft = 60;
   let tiltX = 0, tiltY = 0;
   let planeX = 0, planeY = 0;
@@ -513,6 +531,7 @@
         if (isP1) { tiltX = gx; tiltY = gy; }
         else       { tiltX2 = gx; tiltY2 = gy; }
       }
+      if (d.type === 'playerName') setPlayerName(isP1 ? 1 : 2, d.name);
       if (d.type === 'savescore') {
         saveHighscore(d.name, isP1 ? score : score2, gameMode);
         renderHighscores();
@@ -881,7 +900,7 @@
       document.getElementById('end-score1').textContent = score;
       document.getElementById('end-score2').textContent = score2;
       document.getElementById('end-winner').textContent =
-        score > score2 ? '✈️ Spieler 1 gewinnt!' : score2 > score ? '✈️ Spieler 2 gewinnt!' : '🤝 Unentschieden!';
+        score > score2 ? `✈️ ${playerName1} gewinnt!` : score2 > score ? `✈️ ${playerName2} gewinnt!` : '🤝 Unentschieden!';
       if (conn && conn.open) conn.send({ type: 'gameover', score });
       if (conn2 && conn2.open) conn2.send({ type: 'gameover', score: score2 });
     } else {
@@ -894,6 +913,7 @@
   }
 
   function restartGame() {
+    setPlayerName(1, 'SPIELER 1'); setPlayerName(2, 'SPIELER 2');
     score = 0; timeLeft = 60; gameOver = false;
     planeX = gameMode === 'duo' ? -6 : 0; planeY = 0;
     assignTextures(gameMode);
